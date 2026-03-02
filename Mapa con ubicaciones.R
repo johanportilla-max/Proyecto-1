@@ -2,7 +2,6 @@
 # CORREGIMIENTOS DE DAGUA con domicilios
 # 
 # ====================================================
-
 # 1. Librerías ------------------------------------------------------------
 library(sf)
 library(leaflet)
@@ -11,9 +10,23 @@ library(htmlwidgets)
 library(htmltools)
 
 # 2. Cargar capas geográficas ---------------------------------------------
+# Asegúrate de que la ruta y extensión sean correctas (para domicilios, debe ser .shp)
 corregimientos <- st_read("Corregimientos.gpkg")
-domicilios     <- st_read("Domicilios.shx")
-# 3. Corregir nombres de corregimientos mal escritos ----------------------
+domicilios     <- st_read("Domicilios.shp")   # Cambia a .shp si era .shx
+
+# 3. Asegurar que ambas capas estén en WGS84 (EPSG:4326) para leaflet -----
+if (st_crs(corregimientos) != st_crs(4326)) {
+  corregimientos <- st_transform(corregimientos, 4326)
+}
+if (st_crs(domicilios) != st_crs(4326)) {
+  domicilios <- st_transform(domicilios, 4326)
+}
+
+# 4. Reparar geometrías inválidas en corregimientos -----------------------
+# Esto evita errores de renderizado (como "Loop 0 is not valid")
+corregimientos <- st_make_valid(corregimientos)
+
+# 5. Corregir nombres de corregimientos mal escritos ----------------------
 corregimientos <- corregimientos %>%
   mutate(Nombre = case_when(
     Nombre == "Zelandio"     ~ "Zelandia",
@@ -23,14 +36,19 @@ corregimientos <- corregimientos %>%
     TRUE                      ~ Nombre
   ))
 
-# 4. Crear una paleta de colores para los corregimientos (cualitativa) ----
-# Cada corregimiento tendrá un color diferente según su nombre.
-paleta_correg <- colorFactor(
-  palette = "Set3",      # Paleta con colores variados (apta para categorías)
-  domain = corregimientos$Nombre
-)
+# 6. Identificar columna de nombre en domicilios --------------------------
+# Busca columnas comunes que puedan contener el nombre del lugar
+posibles_nombres <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
+nombre_col_dom <- intersect(posibles_nombres, names(domicilios))[1]
+if (is.na(nombre_col_dom)) {
+  nombre_col_dom <- names(domicilios)[1]
+  warning("No se encontró una columna de nombre clara. Se usará: ", nombre_col_dom)
+}
 
-# 5. Preparar popups y etiquetas para los polígonos -----------------------
+# 7. Paleta de colores para corregimientos --------------------------------
+paleta_correg <- colorFactor(palette = "Set3", domain = corregimientos$Nombre)
+
+# 8. Popups y etiquetas (hover) para polígonos ----------------------------
 popup_poligonos <- paste0(
   "<div style='font-family: Segoe UI, Arial; font-size: 14px; padding: 8px;'>",
   "<b style='color: #1f4e79;'>", corregimientos$Nombre, "</b><br>",
@@ -45,47 +63,66 @@ label_poligonos <- lapply(seq_len(nrow(corregimientos)), function(i) {
   ))
 })
 
-# 6. Preparar popups para los puntos de domicilio -------------------------
-# Ajusta los nombres de columna según tu shapefile (ej: direccion, titular, etc.)
-# Si no existen esos campos, se usará un texto genérico.
-# Para conocer los nombres reales: names(domicilios)
-if (all(c("direccion", "titular", "telefono") %in% names(domicilios))) {
+# 9. Popups para puntos de domicilio (al hacer clic) ----------------------
+campos_extras <- intersect(c("direccion", "titular", "telefono"), names(domicilios))
+if (length(campos_extras) > 0) {
+  texto_base <- paste0(
+    "<div style='font-family: Segoe UI, Arial; font-size: 13px; padding: 5px;'>",
+    "<b style='color:#d35400;'>🏠 ", domicilios[[nombre_col_dom]], "</b><br>"
+  )
+  for (campo in campos_extras) {
+    texto_base <- paste0(texto_base, "<b>", campo, ":</b> ", domicilios[[campo]], "<br>")
+  }
+  popup_puntos <- paste0(texto_base, "</div>")
+} else {
   popup_puntos <- paste0(
     "<div style='font-family: Segoe UI, Arial; font-size: 13px; padding: 5px;'>",
-    "<b style='color:#d35400;'>🏠 Domicilio</b><br>",
-    "<b>Dirección:</b> ", domicilios$Nombre, "<br>",
-    "<b>Titular:</b> ", domicilios$titular, "<br>",
-    "<b>Teléfono:</b> ", domicilios$telefono,
+    "<b style='color:#d35400;'>🏠 ", domicilios[[nombre_col_dom]], "</b><br>",
     "</div>"
   )
-} else {
-  # Si no coinciden los campos, usa solo un texto simple
-  popup_puntos <- "Domicilio de la empresa"
 }
 
-# 7. Construir el mapa ----------------------------------------------------
+# 10. Etiquetas permanentes para domicilios (visibles siempre) ------------
+etiquetas_permanentes <- labelOptions(
+  noHide = TRUE,
+  direction = "top",
+  textOnly = TRUE,
+  style = list(
+    "font-family" = "Segoe UI, Arial",
+    "font-size" = "11px",
+    "font-weight" = "bold",
+    "color" = "#2c3e50",
+    "background-color" = "rgba(255, 255, 255, 0.8)",
+    "padding" = "2px 6px",
+    "border-radius" = "4px",
+    "border" = "1px solid #ccc",
+    "box-shadow" = "0 2px 4px rgba(0,0,0,0.2)"
+  )
+)
+
+# 11. Construir el mapa ---------------------------------------------------
 mapa <- leaflet() %>%
   
-  # Mapas base (estilo claro/oscuro)
+  # Mapas base
   addProviderTiles(providers$CartoDB.Positron, group = "Claro") %>%
   addProviderTiles(providers$CartoDB.DarkMatter, group = "Oscuro") %>%
   
-  # Capa de polígonos (corregimientos coloreados por nombre)
+  # Capa de polígonos (corregimientos) - sin etiquetas permanentes
   addPolygons(
     data = corregimientos,
     fillColor = ~paleta_correg(Nombre),
     fillOpacity = 0.7,
-    color = "#FFFFFF",        # borde blanco
+    color = "#FFFFFF",
     weight = 1.2,
     opacity = 1,
     smoothFactor = 0.3,
     highlightOptions = highlightOptions(
       weight = 3,
-      color = "#FFD700",       # dorado al resaltar
+      color = "#FFD700",
       fillOpacity = 0.9,
       bringToFront = TRUE
     ),
-    label = label_poligonos,
+    label = label_poligonos,           # Nombre al pasar el mouse
     labelOptions = labelOptions(
       style = list(
         "font-family" = "Segoe UI, Arial",
@@ -98,33 +135,43 @@ mapa <- leaflet() %>%
       textsize = "12px",
       direction = "auto"
     ),
-    popup = popup_poligonos,
+    popup = popup_poligonos,            # Nombre al hacer clic
     group = "Corregimientos"
   ) %>%
   
-  # Capa de puntos (domicilios) - círculos de color fijo
+  # Capa de puntos (domicilios) - círculos
   addCircleMarkers(
     data = domicilios,
     radius = 6,
-    color = "#FF5733",        # borde naranja intenso
-    fillColor = "#FFC300",     # relleno amarillo
+    color = "#FF5733",
+    fillColor = "#FFC300",
     fillOpacity = 0.9,
     weight = 1.5,
     opacity = 1,
     popup = popup_puntos,
-    label = ~paste("Domicilio:", ifelse("direccion" %in% names(domicilios), Nombre, "sin dirección")),
+    label = ~domicilios[[nombre_col_dom]],   # Etiqueta hover (opcional, pero se puede dejar)
     group = "Domicilios",
-    clusterOptions = markerClusterOptions()  # opcional: agrupa puntos si hay muchos
+    clusterOptions = markerClusterOptions()  # Quitar si no se desea agrupar
   ) %>%
   
-  # Control de capas (permite activar/desactivar cada elemento)
+  # Etiquetas permanentes para domicilios (visibles siempre)
+  addLabelOnlyMarkers(
+    data = domicilios,
+    lng = ~st_coordinates(domicilios)[,1],
+    lat = ~st_coordinates(domicilios)[,2],
+    label = ~domicilios[[nombre_col_dom]],
+    labelOptions = etiquetas_permanentes,
+    group = "Nombres domicilios"
+  ) %>%
+  
+  # Control de capas (activa/desactiva capas)
   addLayersControl(
     baseGroups = c("Claro", "Oscuro"),
-    overlayGroups = c("Corregimientos", "Domicilios"),
+    overlayGroups = c("Corregimientos", "Domicilios", "Nombres domicilios"),
     options = layersControlOptions(collapsed = TRUE)
   ) %>%
   
-  # Leyenda de corregimientos (muestra los colores asignados)
+  # Leyenda de corregimientos
   addLegend(
     position = "bottomright",
     pal = paleta_correg,
@@ -145,5 +192,5 @@ mapa <- leaflet() %>%
   # Escala gráfica
   addScaleBar(position = "bottomleft", options = scaleBarOptions(imperial = FALSE))
 
-# 8. Visualizar el mapa
+# 12. Visualizar el mapa
 mapa
