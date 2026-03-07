@@ -159,6 +159,6 @@ tabla
 gtsave(tabla, "tabla_cuenta52.html")
 
 # Exportar a PNG (requiere webshot2: install.packages("webshot2"))
-# gtsave(tabla, "tabla_cuenta52.png")
+gtsave(tabla, "tabla_cuenta52.png")
 
 message("Tabla generada. Archivos: tabla_cuenta52.html")
