@@ -6,6 +6,8 @@ library(ggplot2)
 library(dplyr)
 library(ggspatial)
 
+sf_use_s2(FALSE)  # desactiva motor S2 para evitar error con geometrías inválidas
+
 # ── 1. Cargar y corregir datos ───────────────────────────────────────────────
 corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
   mutate(Nombre = case_when(
@@ -29,10 +31,7 @@ crs_utm     <- paste0("EPSG:", epsg_utm)
 
 corr_utm    <- st_transform(corregimientos, crs = crs_utm)
 
-# ── 3. Puntos de etiqueta (dentro del polígono) ──────────────────────────────
-labels_utm  <- st_point_on_surface(corr_utm)
-
-# ── 4. Paleta de azules ───────────────────────────────────────────────────────
+# ── 3. Paleta de azules ───────────────────────────────────────────────────────
 n           <- nrow(corr_utm)
 paleta      <- colorRampPalette(c("#D6E8F7", "#4A90C4", "#1B3A5C"))(n)
 names(paleta) <- sort(corr_utm$Nombre)
@@ -47,7 +46,7 @@ mapa <- ggplot() +
   ) +
   scale_fill_manual(values = paleta) +
   geom_sf_text(
-    data      = labels_utm,
+    data      = corr_utm,
     aes(label = Nombre),
     size      = 2.6,
     color     = "white",
