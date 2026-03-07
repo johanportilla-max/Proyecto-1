@@ -126,6 +126,12 @@ tabla <- cuenta51 |>
     source_note = md("*Fuente: Sistema contable interno — Cuenta 51: Gastos de Administración*")
   ) |>
 
+  # Borde superior de la nota al pie
+  tab_style(
+    style = cell_borders(sides = "top", color = "#B0C4DE", weight = px(1)),
+    locations = cells_source_notes()
+  ) |>
+
   # Opciones generales
   tab_options(
     table.width                    = px(850),
@@ -139,8 +145,7 @@ tabla <- cuenta51 |>
     column_labels.border.top.color = "#1B3A5C",
     column_labels.border.top.width = px(2),
     data_row.padding               = px(8),
-    source_notes.font.size         = px(10),
-    source_notes.border.top.color  = "#B0C4DE"
+    source_notes.font.size         = px(10)
   )
 
 # Mostrar en el Viewer de RStudio
