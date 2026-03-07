@@ -31,14 +31,13 @@ crs_utm     <- paste0("EPSG:", epsg_utm)
 corr_utm    <- st_transform(corregimientos, crs = crs_utm)
 
 # ── 3. Coordenadas de etiqueta (centro del bounding box, sin centroides) ─────
+bboxes <- lapply(st_geometry(corr_utm), st_bbox)
 label_coords <- corr_utm |>
-  rowwise() |>
+  st_drop_geometry() |>
   mutate(
-    lbl_x = mean(st_bbox(geometry)[c(1, 3)]),
-    lbl_y = mean(st_bbox(geometry)[c(2, 4)])
-  ) |>
-  ungroup() |>
-  st_drop_geometry()
+    lbl_x = sapply(bboxes, function(b) mean(b[c(1, 3)])),
+    lbl_y = sapply(bboxes, function(b) mean(b[c(2, 4)]))
+  )
 
 # ── 4. Paleta de azules ───────────────────────────────────────────────────────
 n           <- nrow(corr_utm)
