@@ -20,10 +20,9 @@ corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
   st_transform(crs = 4326)
 
 # ── 2. Proyección UTM automática ─────────────────────────────────────────────
-centroide   <- st_centroid(st_union(corregimientos))
-coords      <- st_coordinates(centroide)
-lon_media   <- coords[1]
-lat_media   <- coords[2]
+bbox_total  <- st_bbox(corregimientos)
+lon_media   <- mean(c(bbox_total["xmin"], bbox_total["xmax"]))
+lat_media   <- mean(c(bbox_total["ymin"], bbox_total["ymax"]))
 utm_zona    <- floor((lon_media + 180) / 6) + 1
 hemisferio  <- ifelse(lat_media >= 0, "north", "south")
 epsg_utm    <- ifelse(hemisferio == "north", 32600, 32700) + utm_zona
