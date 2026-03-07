@@ -1,48 +1,52 @@
-# Tabla profesional - Cuenta 51: Gastos de Administración
+# Tabla profesional - Cuenta 52: Gastos de Ventas
 # Requiere: install.packages(c("gt", "dplyr"))
 
 library(gt)
 library(dplyr)
 
 # Datos
-cuenta51 <- data.frame(
-  Subcuenta = c("5105", "5110", "5115", "5120", "5145", "5160", "5165", "5195", ""),
+cuenta52 <- data.frame(
+  Subcuenta = c("5205", "5210", "5215", "5220", "5235", "5245", "5260", "5265", "5280", "5295", ""),
   Nombre = c(
     "Gastos de personal",
     "Honorarios",
     "Impuestos",
     "Arrendamientos",
+    "Servicios",
     "Mantenimiento y reparaciones",
     "Depreciaciones",
     "Amortizaciones",
+    "Transporte y fletes",
     "Diversos",
     "Total"
   ),
   Descripcion = c(
-    "Sueldos, prestaciones sociales, aportes a seguridad social y parafiscales del personal administrativo",
-    "Pagos a profesionales externos",
-    "Industria y comercio, predial, vehículos y otros tributos administrativos",
-    "Alquiler de oficinas, bodegas o equipos de uso administrativo",
-    "De equipos y bienes de uso administrativo",
-    "De activos fijos usados en administración",
-    "De intangibles administrativos",
-    "Gastos administrativos que no encajan en las anteriores",
-    "$ 24,303,000.00"
+    "Sueldos, prestaciones sociales y aportes del personal del área de ventas y comercial",
+    "Pagos a externos por asesorías comerciales, agentes de ventas independientes",
+    "Tributos directamente relacionados con la actividad de ventas",
+    "Alquiler de locales comerciales, puntos de venta o equipos de ventas",
+    "Energía, teléfono, internet y servicios públicos de puntos de venta",
+    "De equipos y bienes usados en el área de ventas",
+    "De activos fijos usados en la actividad de ventas",
+    "De intangibles relacionados con la actividad comercial",
+    "Envío y distribución de productos al cliente",
+    "Gastos comerciales que no encajan en las subcuentas anteriores",
+    "$ 64,872,000.00"
   ),
   stringsAsFactors = FALSE
 )
 
 # Índice de la fila Total
-fila_total <- nrow(cuenta51)
+fila_total <- nrow(cuenta52)
 
 # Tabla con gt
-tabla <- cuenta51 |>
+tabla <- cuenta52 |>
   gt() |>
 
   # Encabezado principal
   tab_header(
-    title    = md("**Cuenta 51**"),
-    subtitle = md("*Gastos de Administración*")
+    title    = md("**Cuenta 52**"),
+    subtitle = md("*Gastos de Ventas*")
   ) |>
 
   # Etiquetas de columnas
@@ -123,7 +127,7 @@ tabla <- cuenta51 |>
 
   # Nota al pie
   tab_source_note(
-    source_note = md("*Fuente: Sistema contable interno — Cuenta 51: Gastos de Administración*")
+    source_note = md("*Fuente: Sistema contable interno — Cuenta 52: Gastos de Ventas*")
   ) |>
 
   # Borde superior de la nota al pie
@@ -152,9 +156,9 @@ tabla <- cuenta51 |>
 tabla
 
 # Exportar a HTML
-gtsave(tabla, "tabla_cuenta51.html")
+gtsave(tabla, "tabla_cuenta52.html")
 
 # Exportar a PNG (requiere webshot2: install.packages("webshot2"))
-# gtsave(tabla, "tabla_cuenta51.png")
+# gtsave(tabla, "tabla_cuenta52.png")
 
-message("Tabla generada. Archivos: tabla_cuenta51.html")
+message("Tabla generada. Archivos: tabla_cuenta52.html")
