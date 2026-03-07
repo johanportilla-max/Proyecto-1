@@ -67,7 +67,7 @@ tabla <- cuenta51 |>
   tab_style(
     style = list(
       cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(13))
+      cell_text(color = "white", weight = "bold", size = px(15))
     ),
     locations = cells_column_labels()
   ) |>
@@ -86,7 +86,7 @@ tabla <- cuenta51 |>
   tab_style(
     style = list(
       cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(13))
+      cell_text(color = "white", weight = "bold", size = px(15))
     ),
     locations = cells_body(rows = fila_total)
   ) |>
@@ -99,15 +99,15 @@ tabla <- cuenta51 |>
 
   # Estilo general del texto en cuerpo
   tab_style(
-    style = cell_text(size = px(12), font = google_font("Lato")),
+    style = cell_text(size = px(14), font = "Times New Roman"),
     locations = cells_body()
   ) |>
   tab_style(
-    style = cell_text(font = google_font("Lato")),
+    style = cell_text(font = "Times New Roman"),
     locations = cells_column_labels()
   ) |>
   tab_style(
-    style = cell_text(font = google_font("Lato")),
+    style = cell_text(font = "Times New Roman"),
     locations = cells_title()
   ) |>
 
@@ -145,7 +145,7 @@ tabla <- cuenta51 |>
     column_labels.border.top.color = "#1B3A5C",
     column_labels.border.top.width = px(2),
     data_row.padding               = px(8),
-    source_notes.font.size         = px(10)
+    source_notes.font.size         = px(12)
   )
 
 # Mostrar en el Viewer de RStudio
