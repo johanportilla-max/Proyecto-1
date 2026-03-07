@@ -31,7 +31,17 @@ crs_utm     <- paste0("EPSG:", epsg_utm)
 
 corr_utm    <- st_transform(corregimientos, crs = crs_utm)
 
-# ── 3. Paleta de azules ───────────────────────────────────────────────────────
+# ── 3. Coordenadas de etiqueta (centro del bounding box, sin centroides) ─────
+label_coords <- corr_utm |>
+  rowwise() |>
+  mutate(
+    lbl_x = mean(st_bbox(geometry)[c(1, 3)]),
+    lbl_y = mean(st_bbox(geometry)[c(2, 4)])
+  ) |>
+  ungroup() |>
+  st_drop_geometry()
+
+# ── 4. Paleta de azules ───────────────────────────────────────────────────────
 n           <- nrow(corr_utm)
 paleta      <- colorRampPalette(c("#D6E8F7", "#4A90C4", "#1B3A5C"))(n)
 names(paleta) <- sort(corr_utm$Nombre)
@@ -45,9 +55,9 @@ mapa <- ggplot() +
     linewidth = 0.5
   ) +
   scale_fill_manual(values = paleta) +
-  geom_sf_text(
-    data      = corr_utm,
-    aes(label = Nombre),
+  geom_text(
+    data      = label_coords,
+    aes(x = lbl_x, y = lbl_y, label = Nombre),
     size      = 2.6,
     color     = "white",
     fontface  = "bold",
