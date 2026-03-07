@@ -38,12 +38,13 @@ names(paleta) <- sort(corr_utm$Nombre)
 # ── 5. Mapa ───────────────────────────────────────────────────────────────────
 mapa <- ggplot() +
   geom_sf(
-    data  = corr_utm,
+    data         = corr_utm,
     aes(fill = Nombre),
-    color = "white",
-    linewidth = 0.5
+    color        = "white",
+    linewidth    = 0.5,
+    show.legend  = FALSE
   ) +
-  scale_fill_manual(values = paleta) +
+  scale_fill_manual(values = paleta, guide = "none") +
   annotation_scale(
     location   = "bl",
     width_hint = 0.25,
