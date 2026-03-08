@@ -1,12 +1,12 @@
 # Mapa estático profesional - Municipio de Dagua: Corregimientos
-# Requiere: install.packages(c("sf", "ggplot2", "dplyr", "ggspatial"))
+
 
 library(sf)
 library(ggplot2)
 library(dplyr)
 library(ggspatial)
 
-sf_use_s2(FALSE)  # desactiva motor S2 para evitar error con geometrías inválidas
+sf_use_s2(FALSE)  
 
 # ── 1. Cargar y corregir datos ───────────────────────────────────────────────
 corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
