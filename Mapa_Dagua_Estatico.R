@@ -6,6 +6,8 @@ library(ggplot2)
 library(dplyr)
 library(ggspatial)
 
+sf_use_s2(FALSE)  # desactiva motor S2 para evitar error con geometrías inválidas
+
 # ── 1. Cargar y corregir datos ───────────────────────────────────────────────
 corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
   mutate(Nombre = case_when(
@@ -18,10 +20,9 @@ corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
   st_transform(crs = 4326)
 
 # ── 2. Proyección UTM automática ─────────────────────────────────────────────
-centroide   <- st_centroid(st_union(corregimientos))
-coords      <- st_coordinates(centroide)
-lon_media   <- coords[1]
-lat_media   <- coords[2]
+bbox_total  <- st_bbox(corregimientos)
+lon_media   <- mean(c(bbox_total["xmin"], bbox_total["xmax"]))
+lat_media   <- mean(c(bbox_total["ymin"], bbox_total["ymax"]))
 utm_zona    <- floor((lon_media + 180) / 6) + 1
 hemisferio  <- ifelse(lat_media >= 0, "north", "south")
 epsg_utm    <- ifelse(hemisferio == "north", 32600, 32700) + utm_zona
@@ -29,33 +30,20 @@ crs_utm     <- paste0("EPSG:", epsg_utm)
 
 corr_utm    <- st_transform(corregimientos, crs = crs_utm)
 
-# ── 3. Puntos de etiqueta (dentro del polígono) ──────────────────────────────
-labels_utm  <- st_point_on_surface(corr_utm)
-
-# ── 4. Paleta de azules ───────────────────────────────────────────────────────
-n           <- nrow(corr_utm)
-paleta      <- colorRampPalette(c("#D6E8F7", "#4A90C4", "#1B3A5C"))(n)
-names(paleta) <- sort(corr_utm$Nombre)
+# ── 3. Paleta de azules (asignada directamente, sin leyenda) ─────────────────
+n            <- nrow(corr_utm)
+paleta       <- colorRampPalette(c("#D6E8F7", "#4A90C4", "#1B3A5C"))(n)
+corr_utm$color <- paleta[rank(corr_utm$Nombre, ties.method = "first")]
 
 # ── 5. Mapa ───────────────────────────────────────────────────────────────────
 mapa <- ggplot() +
   geom_sf(
-    data  = corr_utm,
-    aes(fill = Nombre),
-    color = "white",
+    data      = corr_utm,
+    aes(fill  = color),
+    color     = "white",
     linewidth = 0.5
   ) +
-  scale_fill_manual(values = paleta) +
-  geom_sf_text(
-    data      = labels_utm,
-    aes(label = Nombre),
-    size      = 2.6,
-    color     = "white",
-    fontface  = "bold",
-    family    = "serif",
-    lineheight = 0.85,
-    check_overlap = FALSE
-  ) +
+  scale_fill_identity() +
   annotation_scale(
     location   = "bl",
     width_hint = 0.25,
