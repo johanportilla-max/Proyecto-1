@@ -6,6 +6,7 @@ library(ggplot2)
 library(dplyr)
 library(ggspatial)
 library(ggrepel)
+library(ggnewscale)
 
 sf_use_s2(FALSE)
 
@@ -46,12 +47,17 @@ posibles <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titu
 col_nom   <- intersect(posibles, names(dom_utm))[1]
 if (is.na(col_nom)) col_nom <- names(dom_utm)[1]
 
+# Spatial join: asignar a cada domicilio el corregimiento donde cae
+corr_para_join <- corr_sel |> select(corregimiento = Nombre)
+dom_utm <- st_join(dom_utm, corr_para_join, left = TRUE)
+
 # Coordenadas para ggrepel
 dom_coords <- dom_utm |>
   mutate(
-    x       = st_coordinates(geometry)[, 1],
-    y       = st_coordinates(geometry)[, 2],
-    etiq    = .data[[col_nom]]
+    x             = st_coordinates(geometry)[, 1],
+    y             = st_coordinates(geometry)[, 2],
+    etiq          = .data[[col_nom]],
+    corregimiento = if_else(is.na(corregimiento), "Otro", corregimiento)
   ) |>
   st_drop_geometry()
 
@@ -62,6 +68,16 @@ paleta_sel <- c(
   "El Limonar"     = "#4A90C4",
   "El Palmar"      = "#6AAED6",
   "San Bernardo"   = "#C6DBEF"
+)
+
+# Paleta para el fondo de las etiquetas de domicilios (mismos colores, más transparentes)
+paleta_etiq <- c(
+  "Borrero Ayerbe" = "#1B3A5C",
+  "El Carmen"      = "#2E6DA4",
+  "El Limonar"     = "#4A90C4",
+  "El Palmar"      = "#6AAED6",
+  "San Bernardo"   = "#C6DBEF",
+  "Otro"           = "#AAAAAA"
 )
 
 # ── 6. Mapa ───────────────────────────────────────────────────────────────────
@@ -95,37 +111,48 @@ mapa <- ggplot() +
     color    = "white"
   ) +
 
+  # Segunda escala de fill — para etiquetas de domicilios
+  new_scale_fill() +
+
   # Puntos de envío
   geom_point(
     data  = dom_coords,
     aes(x = x, y = y),
     shape  = 21,
     size   = 3,
-    color  = "#1B3A5C",
+    color  = "white",
     fill   = "#F0C040",
     stroke = 0.7,
     alpha  = 0.95
   ) +
 
-  # Etiquetas de los puntos de envío (sin solapamiento)
+  # Etiquetas coloreadas según el corregimiento donde cae cada punto
   geom_label_repel(
     data             = dom_coords,
-    aes(x = x, y = y, label = etiq),
+    aes(x = x, y = y, label = etiq, fill = corregimiento),
     size             = 2.5,
     family           = "serif",
     fontface         = "bold",
-    color            = "#1B3A5C",
-    fill             = "white",
-    label.size       = 0.25,
+    color            = "white",
+    label.size       = 0.3,
     label.r          = unit(0.2, "lines"),
     label.padding    = unit(0.22, "lines"),
     box.padding      = unit(0.4, "lines"),
     point.padding    = unit(0.3, "lines"),
-    segment.color    = "#4A6FA5",
-    segment.size     = 0.35,
-    segment.alpha    = 0.7,
+    segment.color    = "white",
+    segment.size     = 0.4,
+    segment.alpha    = 0.8,
     max.overlaps     = 20,
     seed             = 42
+  ) +
+  scale_fill_manual(
+    values = paleta_etiq,
+    name   = "Ubicación en",
+    guide  = guide_legend(
+      title.position = "top",
+      keywidth       = unit(0.7, "cm"),
+      keyheight      = unit(0.45, "cm")
+    )
   ) +
 
   # Escala gráfica
