@@ -130,19 +130,21 @@ mapa <- ggplot() +
   geom_label_repel(
     data             = dom_coords,
     aes(x = x, y = y, label = etiq, fill = corregimiento),
-    size             = 2.5,
+    size             = 2.2,
     family           = "serif",
     fontface         = "bold",
     color            = "white",
     label.size       = 0.3,
     label.r          = unit(0.2, "lines"),
-    label.padding    = unit(0.22, "lines"),
-    box.padding      = unit(0.4, "lines"),
-    point.padding    = unit(0.3, "lines"),
+    label.padding    = unit(0.18, "lines"),
+    box.padding      = unit(0.25, "lines"),
+    point.padding    = unit(0.15, "lines"),
     segment.color    = "white",
     segment.size     = 0.4,
     segment.alpha    = 0.8,
-    max.overlaps     = 20,
+    max.overlaps     = Inf,
+    force            = 3,
+    force_pull       = 0.5,
     seed             = 42
   ) +
   scale_fill_manual(
@@ -212,8 +214,8 @@ print(mapa)
 ggsave(
   filename = "Mapa_Dagua_Con_Ubicaciones.png",
   plot     = mapa,
-  width    = 10,
-  height   = 12,
+  width    = 14,
+  height   = 16,
   dpi      = 300,
   bg       = "#F0F4FA"
 )
