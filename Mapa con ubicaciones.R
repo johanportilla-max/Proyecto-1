@@ -1,196 +1,221 @@
-# ====================================================
-# CORREGIMIENTOS DE DAGUA con domicilios
-# 
-# ====================================================
-# 1. Librerías ------------------------------------------------------------
+# Mapa estático - Dagua: Corregimientos seleccionados + Ubicaciones de envío
+# Requiere: install.packages(c("sf", "ggplot2", "dplyr", "ggspatial", "ggrepel"))
+
 library(sf)
-library(leaflet)
+library(ggplot2)
 library(dplyr)
-library(htmlwidgets)
-library(htmltools)
+library(ggspatial)
+library(ggrepel)
+library(ggnewscale)
 
-# 2. Cargar capas geográficas ---------------------------------------------
-# Asegúrate de que la ruta y extensión sean correctas (para domicilios, debe ser .shp)
-corregimientos <- st_read("Corregimientos.gpkg")
-domicilios     <- st_read("Domicilios.shp")   # Cambia a .shp si era .shx
+sf_use_s2(FALSE)
 
-# 3. Asegurar que ambas capas estén en WGS84 (EPSG:4326) para leaflet -----
-if (st_crs(corregimientos) != st_crs(4326)) {
-  corregimientos <- st_transform(corregimientos, 4326)
-}
-if (st_crs(domicilios) != st_crs(4326)) {
-  domicilios <- st_transform(domicilios, 4326)
-}
-
-# 4. Reparar geometrías inválidas en corregimientos -----------------------
-# Esto evita errores de renderizado (como "Loop 0 is not valid")
-corregimientos <- st_make_valid(corregimientos)
-
-# 5. Corregir nombres de corregimientos mal escritos ----------------------
-corregimientos <- corregimientos %>%
+# ── 1. Cargar y corregir datos ───────────────────────────────────────────────
+corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
   mutate(Nombre = case_when(
-    Nombre == "Zelandio"     ~ "Zelandia",
-    Nombre == "Jiguiales"    ~ "Jiguales",
-    Nombre == "San Bernando" ~ "San Bernardo",
+    Nombre == "Zelandio"      ~ "Zelandia",
+    Nombre == "Jiguiales"     ~ "Jiguales",
+    Nombre == "San Bernando"  ~ "San Bernardo",
     Nombre == "Borreo Ayerbe" ~ "Borrero Ayerbe",
     TRUE                      ~ Nombre
-  ))
+  )) |>
+  st_make_valid() |>
+  st_transform(crs = 4326)
 
-# 6. Identificar columna de nombre en domicilios --------------------------
-# Busca columnas comunes que puedan contener el nombre del lugar
-posibles_nombres <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
-nombre_col_dom <- intersect(posibles_nombres, names(domicilios))[1]
-if (is.na(nombre_col_dom)) {
-  nombre_col_dom <- names(domicilios)[1]
-  warning("No se encontró una columna de nombre clara. Se usará: ", nombre_col_dom)
-}
+domicilios <- st_read("Domicilios.shp", quiet = TRUE) |>
+  st_make_valid() |>
+  st_transform(crs = 4326) %>% filter(Nombre != c("Patrones"))
 
-# 7. Paleta de colores para corregimientos --------------------------------
-paleta_correg <- colorFactor(palette = "Set3", domain = corregimientos$Nombre)
+# ── 2. Proyección UTM automática ─────────────────────────────────────────────
+bbox_total <- st_bbox(corregimientos)
+lon_media  <- mean(c(bbox_total["xmin"], bbox_total["xmax"]))
+lat_media  <- mean(c(bbox_total["ymin"], bbox_total["ymax"]))
+utm_zona   <- floor((lon_media + 180) / 6) + 1
+epsg_utm   <- ifelse(lat_media >= 0, 32600, 32700) + utm_zona
+crs_utm    <- paste0("EPSG:", epsg_utm)
 
-# 8. Popups y etiquetas (hover) para polígonos ----------------------------
-popup_poligonos <- paste0(
-  "<div style='font-family: Segoe UI, Arial; font-size: 14px; padding: 8px;'>",
-  "<b style='color: #1f4e79;'>", corregimientos$Nombre, "</b><br>",
-  "</div>"
+corr_utm <- st_transform(corregimientos, crs = crs_utm)
+dom_utm  <- st_transform(domicilios,     crs = crs_utm)
+
+# ── 3. Filtrar solo los 4 corregimientos pedidos ─────────────────────────────
+seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
+
+corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
+
+# ── 4. Detectar columna de nombre en domicilios ──────────────────────────────
+posibles <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
+col_nom   <- intersect(posibles, names(dom_utm))[1]
+if (is.na(col_nom)) col_nom <- names(dom_utm)[1]
+
+# Spatial join: asignar a cada domicilio el corregimiento donde cae
+corr_para_join <- corr_sel |> select(corregimiento = Nombre)
+dom_utm <- st_join(dom_utm, corr_para_join, left = TRUE)
+
+# Coordenadas para ggrepel
+dom_coords <- dom_utm |>
+  mutate(
+    x             = st_coordinates(geometry)[, 1],
+    y             = st_coordinates(geometry)[, 2],
+    etiq          = .data[[col_nom]],
+    corregimiento = if_else(is.na(corregimiento), "Otro", corregimiento)
+  ) |>
+  st_drop_geometry()
+
+# ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
+paleta_sel <- c(
+  "Borrero Ayerbe" = "#0D3349",   # azul marino profundo
+  "El Carmen"      = "#1A6B72",   # teal oscuro
+  "El Limonar"     = "#2E9EA8",   # cian medio
+  "El Palmar"      = "#5B7FA6",   # azul grisáceo
+  "San Bernardo"   = "#7B5EA7"    # violeta frío
 )
 
-label_poligonos <- lapply(seq_len(nrow(corregimientos)), function(i) {
-  HTML(paste0(
-    "<div style='font-family: Segoe UI, Arial;'>",
-    "<strong>", corregimientos$Nombre[i], "</strong>",
-    "</div>"
-  ))
-})
-
-# 9. Popups para puntos de domicilio (al hacer clic) ----------------------
-campos_extras <- intersect(c("direccion", "titular", "telefono"), names(domicilios))
-if (length(campos_extras) > 0) {
-  texto_base <- paste0(
-    "<div style='font-family: Segoe UI, Arial; font-size: 13px; padding: 5px;'>",
-    "<b style='color:#d35400;'>🏠 ", domicilios[[nombre_col_dom]], "</b><br>"
-  )
-  for (campo in campos_extras) {
-    texto_base <- paste0(texto_base, "<b>", campo, ":</b> ", domicilios[[campo]], "<br>")
-  }
-  popup_puntos <- paste0(texto_base, "</div>")
-} else {
-  popup_puntos <- paste0(
-    "<div style='font-family: Segoe UI, Arial; font-size: 13px; padding: 5px;'>",
-    "<b style='color:#d35400;'>🏠 ", domicilios[[nombre_col_dom]], "</b><br>",
-    "</div>"
-  )
-}
-
-# 10. Etiquetas permanentes para domicilios (visibles siempre) ------------
-etiquetas_permanentes <- labelOptions(
-  noHide = TRUE,
-  direction = "top",
-  textOnly = TRUE,
-  style = list(
-    "font-family" = "Segoe UI, Arial",
-    "font-size" = "11px",
-    "font-weight" = "bold",
-    "color" = "#2c3e50",
-    "background-color" = "rgba(255, 255, 255, 0.8)",
-    "padding" = "2px 6px",
-    "border-radius" = "4px",
-    "border" = "1px solid #ccc",
-    "box-shadow" = "0 2px 4px rgba(0,0,0,0.2)"
-  )
+# Paleta para el fondo de las etiquetas de domicilios
+paleta_etiq <- c(
+  "Borrero Ayerbe" = "#0D3349",
+  "El Carmen"      = "#1A6B72",
+  "El Limonar"     = "#2E9EA8",
+  "El Palmar"      = "#5B7FA6",
+  "San Bernardo"   = "#7B5EA7",
+  "Otro"           = "#7A8FA6"
 )
 
-# 11. Construir el mapa ---------------------------------------------------
-mapa <- leaflet() %>%
+# ── 6. Mapa ───────────────────────────────────────────────────────────────────
+mapa <- ggplot() +
   
-  # Mapas base
-  addProviderTiles(providers$CartoDB.Positron, group = "Claro") %>%
-  addProviderTiles(providers$CartoDB.DarkMatter, group = "Oscuro") %>%
+  # Corregimientos seleccionados — paleta de azules
+  geom_sf(
+    data      = corr_sel,
+    aes(fill  = Nombre),
+    color     = "white",
+    linewidth = 0.7
+  ) +
+  scale_fill_manual(
+    values = paleta_sel,
+    name   = "Corregimiento",
+    guide  = guide_legend(
+      title.position = "top",
+      keywidth       = unit(0.7, "cm"),
+      keyheight      = unit(0.55, "cm"),
+      override.aes   = list(color = "white", linewidth = 0.4)
+    )
+  ) +
   
-  # Capa de polígonos (corregimientos) - sin etiquetas permanentes
-  addPolygons(
-    data = corregimientos,
-    fillColor = ~paleta_correg(Nombre),
-    fillOpacity = 0.7,
-    color = "#FFFFFF",
-    weight = 1.2,
-    opacity = 1,
-    smoothFactor = 0.3,
-    highlightOptions = highlightOptions(
-      weight = 3,
-      color = "#FFD700",
-      fillOpacity = 0.9,
-      bringToFront = TRUE
-    ),
-    label = label_poligonos,           # Nombre al pasar el mouse
-    labelOptions = labelOptions(
-      style = list(
-        "font-family" = "Segoe UI, Arial",
-        "font-size" = "12px",
-        "padding" = "6px 12px",
-        "border-radius" = "6px",
-        "background-color" = "rgba(255,255,255,0.95)",
-        "box-shadow" = "0 2px 8px rgba(0,0,0,0.15)"
-      ),
-      textsize = "12px",
-      direction = "auto"
-    ),
-    popup = popup_poligonos,            # Nombre al hacer clic
-    group = "Corregimientos"
-  ) %>%
+  # Etiquetas de los corregimientos seleccionados
+  geom_sf_text(
+    data     = corr_sel,
+    aes(label = Nombre),
+    size     = 3,
+    family   = "serif",
+    fontface = "bold.italic",
+    color    = "white"
+  ) +
   
-  # Capa de puntos (domicilios) - círculos
-  addCircleMarkers(
-    data = domicilios,
-    radius = 6,
-    color = "#FF5733",
-    fillColor = "#FFC300",
-    fillOpacity = 0.9,
-    weight = 1.5,
-    opacity = 1,
-    popup = popup_puntos,
-    label = ~domicilios[[nombre_col_dom]],   # Etiqueta hover (opcional, pero se puede dejar)
-    group = "Domicilios",
-    clusterOptions = markerClusterOptions()  # Quitar si no se desea agrupar
-  ) %>%
+  # Segunda escala de fill — para etiquetas de domicilios
+  new_scale_fill() +
   
-  # Etiquetas permanentes para domicilios (visibles siempre)
-  addLabelOnlyMarkers(
-    data = domicilios,
-    lng = ~st_coordinates(domicilios)[,1],
-    lat = ~st_coordinates(domicilios)[,2],
-    label = ~domicilios[[nombre_col_dom]],
-    labelOptions = etiquetas_permanentes,
-    group = "Nombres domicilios"
-  ) %>%
+  # Puntos de envío
+  geom_point(
+    data  = dom_coords,
+    aes(x = x, y = y),
+    shape  = 21,
+    size   = 3,
+    color  = "white",
+    fill   = "#F0C040",
+    stroke = 0.7,
+    alpha  = 0.95
+  ) +
   
-  # Control de capas (activa/desactiva capas)
-  addLayersControl(
-    baseGroups = c("Claro", "Oscuro"),
-    overlayGroups = c("Corregimientos", "Domicilios", "Nombres domicilios"),
-    options = layersControlOptions(collapsed = TRUE)
-  ) %>%
-  
-  # Leyenda de corregimientos
-  addLegend(
-    position = "bottomright",
-    pal = paleta_correg,
-    values = corregimientos$Nombre,
-    title = htmltools::HTML("<span style='font-weight:600;'>Corregimientos</span>"),
-    opacity = 0.9,
-    group = "Corregimientos"
-  ) %>%
-  
-  # Ajustar vista para abarcar ambas capas
-  fitBounds(
-    lng1 = min(c(st_bbox(corregimientos)[1], st_bbox(domicilios)[1]), na.rm = TRUE),
-    lat1 = min(c(st_bbox(corregimientos)[2], st_bbox(domicilios)[2]), na.rm = TRUE),
-    lng2 = max(c(st_bbox(corregimientos)[3], st_bbox(domicilios)[3]), na.rm = TRUE),
-    lat2 = max(c(st_bbox(corregimientos)[4], st_bbox(domicilios)[4]), na.rm = TRUE)
-  ) %>%
+  # Etiquetas coloreadas según el corregimiento donde cae cada punto
+  geom_label_repel(
+    data             = dom_coords,
+    aes(x = x, y = y, label = etiq, fill = corregimiento),
+    size             = 2.5,
+    family           = "serif",
+    fontface         = "bold",
+    color            = "white",
+    label.size       = 0.3,
+    label.r          = unit(0.2, "lines"),
+    label.padding    = unit(0.22, "lines"),
+    box.padding      = unit(0.4, "lines"),
+    point.padding    = unit(0.3, "lines"),
+    segment.color    = "white",
+    segment.size     = 0.4,
+    segment.alpha    = 0.8,
+    max.overlaps     = 20,
+    seed             = 42
+  ) +
+  scale_fill_manual(
+    values = paleta_etiq,
+    name   = "Ubicación en",
+    guide  = guide_legend(
+      title.position = "top",
+      keywidth       = unit(0.7, "cm"),
+      keyheight      = unit(0.45, "cm")
+    )
+  ) +
   
   # Escala gráfica
-  addScaleBar(position = "bottomleft", options = scaleBarOptions(imperial = FALSE))
+  annotation_scale(
+    location   = "bl",
+    width_hint = 0.22,
+    text_col   = "#1B3A5C",
+    line_col   = "#1B3A5C",
+    text_cex   = 0.75
+  ) +
+  
+  # Rosa de los vientos
+  annotation_north_arrow(
+    location    = "tr",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(
+      fill     = c("white", "#1B3A5C"),
+      line_col = "#1B3A5C",
+      text_col = "#1B3A5C"
+    ),
+    height = unit(1.2, "cm"),
+    width  = unit(1.2, "cm")
+  ) +
+  
+  labs(
+    title    = "Municipio de Dagua — Ubicaciones de Envío",
+    subtitle = "Corregimientos: Borrero Ayerbe · El Carmen · El Limonar · El Palmar · San Bernardo",
+    caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
+  ) +
+  
+  theme_void(base_family = "serif") +
+  theme(
+    legend.position   = c(0.15, 0.2),
+    legend.background = element_rect(fill = "white", color = "#B0C4DE", linewidth = 0.4),
+    legend.margin     = margin(6, 10, 6, 10),
+    legend.title      = element_text(size = 8.5, color = "#1B3A5C", face = "bold"),
+    legend.text       = element_text(size = 8, color = "#1B3A5C"),
+    plot.title        = element_text(
+      size = 15, face = "bold", color = "#1B3A5C",
+      hjust = 0.5, margin = margin(b = 4)
+    ),
+    plot.subtitle     = element_text(
+      size = 9, color = "#4A6FA5",
+      hjust = 0.5, margin = margin(b = 8)
+    ),
+    plot.caption      = element_text(
+      size = 7.5, color = "#7F8C8D",
+      hjust = 0.5, margin = margin(t = 6)
+    ),
+    plot.background   = element_rect(fill = "#F0F4FA", color = NA),
+    plot.margin       = margin(16, 16, 12, 16)
+  )
 
-# 12. Visualizar el mapa
-mapa
+# ── 7. Mostrar y exportar ────────────────────────────────────────────────────
+print(mapa)
+
+ggsave(
+  filename = "Mapa_Dagua_Con_Ubicaciones.png",
+  plot     = mapa,
+  width    = 10,
+  height   = 12,
+  dpi      = 300,
+  bg       = "#F0F4FA"
+)
+
+message("Mapa generado: Mapa_Dagua_Con_Ubicaciones.png")
