@@ -24,16 +24,7 @@ domicilios <- st_read("Domicilios.shp", quiet = TRUE) |>
   st_make_valid() |>
   st_transform(crs = 4326)
 
-# ── 2. Contar domicilios por corregimiento (spatial join) ────────────────────
-conteo <- st_join(corregimientos["Nombre"], domicilios, join = st_contains) |>
-  st_drop_geometry() |>
-  count(Nombre, name = "n_domicilios")
-
-corregimientos <- corregimientos |>
-  left_join(conteo, by = "Nombre") |>
-  mutate(n_domicilios = replace_na(n_domicilios, 0L))
-
-# ── 3. Proyección UTM automática ─────────────────────────────────────────────
+# ── 2. Proyección UTM automática ─────────────────────────────────────────────
 bbox_total <- st_bbox(corregimientos)
 lon_media  <- mean(c(bbox_total["xmin"], bbox_total["xmax"]))
 lat_media  <- mean(c(bbox_total["ymin"], bbox_total["ymax"]))
@@ -43,6 +34,10 @@ crs_utm    <- paste0("EPSG:", epsg_utm)
 
 corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
+
+# ── 3. Contar domicilios por corregimiento ───────────────────────────────────
+# st_within evita conflictos de nombres y trabaja en CRS métrico (UTM)
+corr_utm$n_domicilios <- lengths(st_within(dom_utm, corr_utm))
 
 # ── 4. Centroides para etiquetas (solo top 5) ────────────────────────────────
 top5 <- c("Borrero Ayerbe", "El Carmen", "El Palmar", "El Limonar", "San Bernardo")
