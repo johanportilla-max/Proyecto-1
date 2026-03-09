@@ -60,10 +60,18 @@ dom_todos <- dom_utm |>
   ) |>
   st_drop_geometry()
 
-# ── 4b. Punto especial: empresa Triple AAA (tomado directamente del shapefile) ──
-aaa_coord  <- dom_todos |> filter(etiq == "Triple AAA") |>
-  mutate(etiq = "★ Triple AAA")
-dom_coords <- dom_todos |> filter(etiq != "Triple AAA")
+# ── 4b. Punto especial: empresa Triple AAA ───────────────────────────────────
+# Coordenadas reales: lon = -76.6478, lat = 3.572946 (Domicilios.shp, id = 32)
+aaa_sf    <- st_as_sf(data.frame(lon = -76.6478, lat = 3.572946),
+                      coords = c("lon", "lat"), crs = 4326) |>
+             st_transform(crs = crs_utm)
+aaa_coord <- data.frame(
+  x             = st_coordinates(aaa_sf)[1, "X"],
+  y             = st_coordinates(aaa_sf)[1, "Y"],
+  etiq          = "★ Triple AAA",
+  corregimiento = "Borrero Ayerbe"
+)
+dom_coords <- dom_todos   # todos los domicilios normales (Triple AAA no está aún en el DBF)
 
 # ── 5. Paleta de colores ─────────────────────────────────────────────────────
 paleta <- c(
