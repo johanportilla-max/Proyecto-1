@@ -52,7 +52,7 @@ corr_para_join <- corr_sel |> select(corregimiento = Nombre)
 dom_utm <- st_join(dom_utm, corr_para_join, left = TRUE)
 
 # Coordenadas para ggrepel
-dom_coords <- dom_utm |>
+dom_todos <- dom_utm |>
   mutate(
     x             = st_coordinates(geometry)[, 1],
     y             = st_coordinates(geometry)[, 2],
@@ -61,15 +61,10 @@ dom_coords <- dom_utm |>
   ) |>
   st_drop_geometry()
 
-# ── 4b. Punto especial: empresa Triple AAA (centroide de Borrero Ayerbe) ─────
-# NOTA: reemplaza x e y con las coordenadas UTM exactas de la empresa cuando las tengas
-borrero_utm <- corr_utm |> filter(Nombre == "Borrero Ayerbe")
-centro_aaa  <- st_coordinates(st_centroid(borrero_utm))
-aaa_coord   <- data.frame(
-  x    = centro_aaa[1, "X"],
-  y    = centro_aaa[1, "Y"],
-  etiq = "★ Triple AAA"
-)
+# ── 4b. Punto especial: empresa Triple AAA (tomado directamente del shapefile) ──
+aaa_coord  <- dom_todos |> filter(etiq == "Triple AAA") |>
+  mutate(etiq = "★ Triple AAA")
+dom_coords <- dom_todos |> filter(etiq != "Triple AAA")
 
 # ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
 paleta_sel <- c(
