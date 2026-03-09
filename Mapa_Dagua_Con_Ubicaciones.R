@@ -1,10 +1,11 @@
-# Mapa estático - Dagua: Corregimientos + Domicilios
-# Requiere: install.packages(c("sf", "ggplot2", "dplyr", "ggspatial"))
+# Mapa estático - Dagua: Corregimientos seleccionados + Ubicaciones de envío
+# Requiere: install.packages(c("sf", "ggplot2", "dplyr", "ggspatial", "ggrepel"))
 
 library(sf)
 library(ggplot2)
 library(dplyr)
 library(ggspatial)
+library(ggrepel)
 
 sf_use_s2(FALSE)
 
@@ -35,71 +36,104 @@ crs_utm    <- paste0("EPSG:", epsg_utm)
 corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 
-# ── 3. Contar domicilios por corregimiento ───────────────────────────────────
-# st_intersects(puntos, polígonos) → para cada punto, índice del polígono
-# tabulate con nbins fijo garantiza vector de longitud exacta = nrow(corr_utm)
-idx_poligono <- unlist(st_intersects(dom_utm, corr_utm))
-corr_utm$n_domicilios <- tabulate(idx_poligono, nbins = nrow(corr_utm))
+# ── 3. Filtrar solo los 4 corregimientos pedidos ─────────────────────────────
+seleccion <- c("Borrero Ayerbe", "El Limonar", "Dagua", "El Palmar")
 
-# ── 4. Centroides para etiquetas (solo top 5) ────────────────────────────────
-top5 <- c("Borrero Ayerbe", "El Carmen", "El Palmar", "El Limonar", "San Bernardo")
+corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
+corr_rest <- corr_utm |> filter(!Nombre %in% seleccion)   # fondo neutro
 
-centroides_top5 <- corr_utm |>
-  filter(Nombre %in% top5) |>
-  st_centroid() |>
+# ── 4. Detectar columna de nombre en domicilios ──────────────────────────────
+posibles <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
+col_nom   <- intersect(posibles, names(dom_utm))[1]
+if (is.na(col_nom)) col_nom <- names(dom_utm)[1]
+
+# Coordenadas para ggrepel
+dom_coords <- dom_utm |>
   mutate(
-    x = st_coordinates(geometry)[, 1],
-    y = st_coordinates(geometry)[, 2]
+    x       = st_coordinates(geometry)[, 1],
+    y       = st_coordinates(geometry)[, 2],
+    etiq    = .data[[col_nom]]
   ) |>
   st_drop_geometry()
 
-# ── 5. Mapa ───────────────────────────────────────────────────────────────────
+# ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
+paleta_sel <- c(
+  "Borrero Ayerbe" = "#1B3A5C",
+  "Dagua"          = "#2E6DA4",
+  "El Limonar"     = "#6AAED6",
+  "El Palmar"      = "#C6DBEF"
+)
+
+# ── 6. Mapa ───────────────────────────────────────────────────────────────────
 mapa <- ggplot() +
 
-  # Corregimientos coloreados por frecuencia de domicilios
+  # Fondo: corregimientos no seleccionados (gris suave)
   geom_sf(
-    data      = corr_utm,
-    aes(fill  = n_domicilios),
-    color     = "white",
-    linewidth = 0.5
+    data      = corr_rest,
+    fill      = "#E8EDF2",
+    color     = "#C5CDD6",
+    linewidth = 0.3
   ) +
-  scale_fill_gradient(
-    low    = "#D6E8F7",
-    high   = "#1B3A5C",
-    name   = "N° domicilios",
-    breaks = scales::pretty_breaks(n = 5),
-    guide  = guide_colorbar(
+
+  # Corregimientos seleccionados — paleta de azules
+  geom_sf(
+    data      = corr_sel,
+    aes(fill  = Nombre),
+    color     = "white",
+    linewidth = 0.7
+  ) +
+  scale_fill_manual(
+    values = paleta_sel,
+    name   = "Corregimiento",
+    guide  = guide_legend(
       title.position = "top",
-      barwidth       = unit(0.4, "cm"),
-      barheight      = unit(3,   "cm"),
-      ticks.colour   = "white"
+      keywidth       = unit(0.7, "cm"),
+      keyheight      = unit(0.55, "cm"),
+      override.aes   = list(color = "white", linewidth = 0.4)
     )
   ) +
 
-  # Puntos de domicilios
-  geom_sf(
-    data  = dom_utm,
-    color = "#C0392B",
-    fill  = "#E74C3C",
-    shape = 21,
-    size  = 1.8,
-    stroke = 0.4,
-    alpha = 0.85
+  # Etiquetas de los corregimientos seleccionados
+  geom_sf_text(
+    data     = corr_sel,
+    aes(label = Nombre),
+    size     = 3,
+    family   = "serif",
+    fontface = "bold.italic",
+    color    = "white"
   ) +
 
-  # Etiquetas para los 5 corregimientos más frecuentes
-  geom_label(
-    data  = centroides_top5,
-    aes(x = x, y = y, label = Nombre),
-    size            = 2.6,
-    family          = "serif",
-    fontface        = "bold",
-    color           = "#1B3A5C",
-    fill            = "white",
-    label.size      = 0.3,
-    label.r         = unit(0.15, "lines"),
-    label.padding   = unit(0.18, "lines"),
-    alpha           = 0.88
+  # Puntos de envío
+  geom_point(
+    data  = dom_coords,
+    aes(x = x, y = y),
+    shape  = 21,
+    size   = 3,
+    color  = "#1B3A5C",
+    fill   = "#F0C040",
+    stroke = 0.7,
+    alpha  = 0.95
+  ) +
+
+  # Etiquetas de los puntos de envío (sin solapamiento)
+  geom_label_repel(
+    data             = dom_coords,
+    aes(x = x, y = y, label = etiq),
+    size             = 2.5,
+    family           = "serif",
+    fontface         = "bold",
+    color            = "#1B3A5C",
+    fill             = "white",
+    label.size       = 0.25,
+    label.r          = unit(0.2, "lines"),
+    label.padding    = unit(0.22, "lines"),
+    box.padding      = unit(0.4, "lines"),
+    point.padding    = unit(0.3, "lines"),
+    segment.color    = "#4A6FA5",
+    segment.size     = 0.35,
+    segment.alpha    = 0.7,
+    max.overlaps     = 20,
+    seed             = 42
   ) +
 
   # Escala gráfica
@@ -125,18 +159,18 @@ mapa <- ggplot() +
   ) +
 
   labs(
-    title    = "Municipio de Dagua — Domicilios por Corregimiento",
-    subtitle = "Valle del Cauca, Colombia  ·  Puntos rojos: ubicaciones registradas",
-    caption  = "Corregimientos con mayor concentración etiquetados"
+    title    = "Municipio de Dagua — Ubicaciones de Envío",
+    subtitle = "Corregimientos: Borrero Ayerbe · El Limonar · Dagua · El Palmar",
+    caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
   ) +
 
   theme_void(base_family = "serif") +
   theme(
-    legend.position   = c(0.88, 0.35),
+    legend.position   = c(0.15, 0.2),
     legend.background = element_rect(fill = "white", color = "#B0C4DE", linewidth = 0.4),
-    legend.margin     = margin(6, 8, 6, 8),
-    legend.title      = element_text(size = 8, color = "#1B3A5C", face = "bold"),
-    legend.text       = element_text(size = 7.5, color = "#1B3A5C"),
+    legend.margin     = margin(6, 10, 6, 10),
+    legend.title      = element_text(size = 8.5, color = "#1B3A5C", face = "bold"),
+    legend.text       = element_text(size = 8, color = "#1B3A5C"),
     plot.title        = element_text(
       size = 15, face = "bold", color = "#1B3A5C",
       hjust = 0.5, margin = margin(b = 4)
@@ -153,7 +187,7 @@ mapa <- ggplot() +
     plot.margin       = margin(16, 16, 12, 16)
   )
 
-# ── 6. Mostrar y exportar ────────────────────────────────────────────────────
+# ── 7. Mostrar y exportar ────────────────────────────────────────────────────
 print(mapa)
 
 ggsave(
