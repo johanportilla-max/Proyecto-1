@@ -61,6 +61,16 @@ dom_coords <- dom_utm |>
   ) |>
   st_drop_geometry()
 
+# ── 4b. Punto especial: empresa Triple AAA (centroide de Borrero Ayerbe) ─────
+# NOTA: reemplaza x e y con las coordenadas UTM exactas de la empresa cuando las tengas
+borrero_utm <- corr_utm |> filter(Nombre == "Borrero Ayerbe")
+centro_aaa  <- st_coordinates(st_centroid(borrero_utm))
+aaa_coord   <- data.frame(
+  x    = centro_aaa[1, "X"],
+  y    = centro_aaa[1, "Y"],
+  etiq = "★ Triple AAA"
+)
+
 # ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
 paleta_sel <- c(
   "Borrero Ayerbe" = "#0D3349",   # azul marino profundo
@@ -157,6 +167,37 @@ mapa <- ggplot() +
     )
   ) +
 
+  # Punto especial: empresa Triple AAA — diamante rojo destacado
+  geom_point(
+    data   = aaa_coord,
+    aes(x  = x, y = y),
+    shape  = 23,
+    size   = 7,
+    fill   = "#E63946",
+    color  = "white",
+    stroke = 1.4
+  ) +
+  geom_label_repel(
+    data          = aaa_coord,
+    aes(x = x, y = y, label = etiq),
+    size          = 3.5,
+    family        = "serif",
+    fontface      = "bold",
+    color         = "white",
+    fill          = "#E63946",
+    label.size    = 0.6,
+    label.r       = unit(0.25, "lines"),
+    label.padding = unit(0.3, "lines"),
+    box.padding   = unit(0.6, "lines"),
+    point.padding = unit(0.5, "lines"),
+    segment.color = "#E63946",
+    segment.size  = 0.8,
+    segment.alpha = 1,
+    max.overlaps  = Inf,
+    seed          = 43,
+    nudge_y       = 5000
+  ) +
+
   # Escala gráfica
   annotation_scale(
     location   = "bl",
@@ -182,7 +223,7 @@ mapa <- ggplot() +
   labs(
     title    = "Municipio de Dagua — Ubicaciones de Envío",
     subtitle = "Corregimientos: Borrero Ayerbe · El Carmen · El Limonar · El Palmar · San Bernardo",
-    caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
+    caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: envíos registrados  ·  Diamante rojo: empresa Triple AAA"
   ) +
 
   theme_void(base_family = "serif") +

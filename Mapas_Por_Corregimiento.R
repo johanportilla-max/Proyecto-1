@@ -60,6 +60,16 @@ dom_coords <- dom_utm |>
   ) |>
   st_drop_geometry()
 
+# ── 4b. Punto especial: empresa Triple AAA (centroide de Borrero Ayerbe) ─────
+# NOTA: reemplaza x e y con las coordenadas UTM exactas de la empresa cuando las tengas
+borrero_utm_aaa <- corr_utm |> filter(Nombre == "Borrero Ayerbe")
+centro_aaa      <- st_coordinates(st_centroid(borrero_utm_aaa))
+aaa_coord       <- data.frame(
+  x    = centro_aaa[1, "X"],
+  y    = centro_aaa[1, "Y"],
+  etiq = "★ Triple AAA"
+)
+
 # ── 5. Paleta de colores ─────────────────────────────────────────────────────
 paleta <- c(
   "Borrero Ayerbe" = "#0D3349",
@@ -131,6 +141,42 @@ mapa_corregimiento <- function(nombre_corr) {
       seed          = 42
     ) +
 
+    # Punto especial Triple AAA — solo se dibuja si es Borrero Ayerbe
+    { if (nombre_corr == "Borrero Ayerbe")
+        list(
+          geom_point(
+            data   = aaa_coord,
+            aes(x  = x, y = y),
+            shape  = 23,
+            size   = 7,
+            fill   = "#E63946",
+            color  = "white",
+            stroke = 1.4
+          ),
+          geom_label_repel(
+            data          = aaa_coord,
+            aes(x = x, y = y, label = etiq),
+            size          = 3.5,
+            family        = "serif",
+            fontface      = "bold",
+            color         = "white",
+            fill          = "#E63946",
+            label.size    = 0.6,
+            label.r       = unit(0.25, "lines"),
+            label.padding = unit(0.3, "lines"),
+            box.padding   = unit(0.6, "lines"),
+            point.padding = unit(0.5, "lines"),
+            segment.color = "#E63946",
+            segment.size  = 0.8,
+            segment.alpha = 1,
+            max.overlaps  = Inf,
+            seed          = 43,
+            nudge_y       = 3000
+          )
+        )
+      else list()
+    } +
+
     # Escala gráfica
     annotation_scale(
       location   = "bl",
@@ -156,7 +202,10 @@ mapa_corregimiento <- function(nombre_corr) {
     labs(
       title    = paste0("Corregimiento: ", nombre_corr),
       subtitle = paste0("Municipio de Dagua — ", nrow(dom_focus), " ubicaciones de envío"),
-      caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
+      caption  = if (nombre_corr == "Borrero Ayerbe")
+        "Valle del Cauca, Colombia  ·  Puntos amarillos: envíos  ·  Diamante rojo: empresa Triple AAA"
+      else
+        "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
     ) +
 
     theme_void(base_family = "serif") +
