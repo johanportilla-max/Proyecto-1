@@ -40,7 +40,6 @@ dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
 
 corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
-corr_rest <- corr_utm |> filter(!Nombre %in% seleccion)   # fondo neutro
 
 # ── 4. Detectar columna de nombre en domicilios ──────────────────────────────
 posibles <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
@@ -67,14 +66,6 @@ paleta_sel <- c(
 
 # ── 6. Mapa ───────────────────────────────────────────────────────────────────
 mapa <- ggplot() +
-
-  # Fondo: corregimientos no seleccionados (gris suave)
-  geom_sf(
-    data      = corr_rest,
-    fill      = "#E8EDF2",
-    color     = "#C5CDD6",
-    linewidth = 0.3
-  ) +
 
   # Corregimientos seleccionados — paleta de azules
   geom_sf(
