@@ -63,21 +63,21 @@ dom_coords <- dom_utm |>
 
 # ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
 paleta_sel <- c(
-  "Borrero Ayerbe" = "#1B3A5C",
-  "El Carmen"      = "#2E6DA4",
-  "El Limonar"     = "#4A90C4",
-  "El Palmar"      = "#6AAED6",
-  "San Bernardo"   = "#C6DBEF"
+  "Borrero Ayerbe" = "#0D3349",   # azul marino profundo
+  "El Carmen"      = "#1A6B72",   # teal oscuro
+  "El Limonar"     = "#2E9EA8",   # cian medio
+  "El Palmar"      = "#5B7FA6",   # azul grisáceo
+  "San Bernardo"   = "#7B5EA7"    # violeta frío
 )
 
-# Paleta para el fondo de las etiquetas de domicilios (mismos colores, más transparentes)
+# Paleta para el fondo de las etiquetas de domicilios
 paleta_etiq <- c(
-  "Borrero Ayerbe" = "#1B3A5C",
-  "El Carmen"      = "#2E6DA4",
-  "El Limonar"     = "#4A90C4",
-  "El Palmar"      = "#6AAED6",
-  "San Bernardo"   = "#C6DBEF",
-  "Otro"           = "#AAAAAA"
+  "Borrero Ayerbe" = "#0D3349",
+  "El Carmen"      = "#1A6B72",
+  "El Limonar"     = "#2E9EA8",
+  "El Palmar"      = "#5B7FA6",
+  "San Bernardo"   = "#7B5EA7",
+  "Otro"           = "#7A8FA6"
 )
 
 # ── 6. Mapa ───────────────────────────────────────────────────────────────────
