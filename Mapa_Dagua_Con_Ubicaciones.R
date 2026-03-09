@@ -37,7 +37,7 @@ corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 
 # ── 3. Filtrar solo los 4 corregimientos pedidos ─────────────────────────────
-seleccion <- c("Borrero Ayerbe", "El Limonar", "Dagua", "El Palmar")
+seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
 
 corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
 corr_rest <- corr_utm |> filter(!Nombre %in% seleccion)   # fondo neutro
@@ -59,9 +59,10 @@ dom_coords <- dom_utm |>
 # ── 5. Paleta de 4 azules para corregimientos seleccionados ──────────────────
 paleta_sel <- c(
   "Borrero Ayerbe" = "#1B3A5C",
-  "Dagua"          = "#2E6DA4",
-  "El Limonar"     = "#6AAED6",
-  "El Palmar"      = "#C6DBEF"
+  "El Carmen"      = "#2E6DA4",
+  "El Limonar"     = "#4A90C4",
+  "El Palmar"      = "#6AAED6",
+  "San Bernardo"   = "#C6DBEF"
 )
 
 # ── 6. Mapa ───────────────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ mapa <- ggplot() +
 
   labs(
     title    = "Municipio de Dagua — Ubicaciones de Envío",
-    subtitle = "Corregimientos: Borrero Ayerbe · El Limonar · Dagua · El Palmar",
+    subtitle = "Corregimientos: Borrero Ayerbe · El Carmen · El Limonar · El Palmar · San Bernardo",
     caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: lugares de envío registrados"
   ) +
 
