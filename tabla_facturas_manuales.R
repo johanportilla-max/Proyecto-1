@@ -21,8 +21,6 @@ facturas <- data.frame(
 
 fila_total  <- nrow(facturas)          # fila 13 — totales
 filas_datos <- 1:(fila_total - 1)      # filas 1-12
-# Filas con cambio distinto de cero (se pinta rosa)
-filas_rosa  <- which(facturas$Cambios != "0" & facturas$Cambios != "")
 
 # ── Tabla ─────────────────────────────────────────────────────────────────────
 tabla <- facturas |>
@@ -87,15 +85,6 @@ tabla <- facturas |>
   tab_style(
     style = cell_borders(sides = "top", color = "#1B3A5C", weight = px(2)),
     locations = cells_body(rows = fila_total)
-  ) |>
-
-  # ── Columna Cambios: fondo rosa para valores distintos de "0" y no vacíos ───
-  tab_style(
-    style = list(
-      cell_fill(color = "#FFD6D6"),
-      cell_text(color = "#B22222", weight = "bold")
-    ),
-    locations = cells_body(columns = Cambios, rows = filas_rosa)
   ) |>
 
   # ── Columna Meses y SAI en azul negrita (filas de datos) ────────────────────
