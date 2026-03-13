@@ -1,5 +1,3 @@
-
-
 library(readxl)
 library(tidyverse)
 library(scales)
@@ -9,15 +7,16 @@ library(glue)
 ARCHIVO        <- "CUADRE CAJA 2025 RESUMEN .xlsx"
 CARPETA_SALIDA <- "."
 # TEMA 
-azul_1  <- "#0D2B55"  
-azul_2  <- "#1B5E8A"   
-azul_3  <- "#4A90C4"   
-azul_4  <- "#7BB8D8"   
-azul_5  <- "#BDE0F0"   
-gris_f  <- "#F4F7FA"   
-gris_t  <- "#2C3E50"   
-gris_l  <- "#8FA0AE"   
-linea_p <- "#555555"  
+
+azul_1  <- "#0D2B55"   # se mantiene
+azul_2  <- "#1B5E8A"   # se mantiene
+azul_3  <- "#3A7AB0"   # ligeramente más oscuro que el original (#4A90C4)
+azul_4  <- "#5A9BC0"   # más oscuro que el original (#7BB8D8)
+azul_5  <- "#8FC5E0"   # más oscuro que el original (#BDE0F0)
+gris_f  <- "#F4F7FA"   # se mantiene
+gris_t  <- "#2C3E50"   # se mantiene
+gris_l  <- "#8FA0AE"   # se mantiene
+linea_p <- "#555555"   # se mantiene
 
 tema_aaa <- theme_minimal(base_family = "sans") +
   theme(
