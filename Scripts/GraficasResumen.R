@@ -12,6 +12,7 @@ library(tidyr)
 library(forcats)
 library(gridExtra)
 library(stringr)
+library(patchwork)
 
 # ── PALETA Y TEMA ──────────────────────────────────────────────────────
 azul_1  <- "#0D2B55"
@@ -28,25 +29,25 @@ tema_aaa <- theme_minimal(base_family = "sans") +
   theme(
     plot.background    = element_rect(fill = "white", colour = NA),
     panel.background   = element_rect(fill = gris_f, colour = NA),
-    panel.grid.major.y = element_line(colour = "#D0DCE8", linewidth = 0.4),
+    panel.grid.major.y = element_line(colour = "#D0DCE8", linewidth = 0.5),
     panel.grid.major.x = element_blank(),
     panel.grid.minor   = element_blank(),
-    plot.title         = element_text(size = 14, face = "bold", colour = gris_t,
-                                      margin = margin(b = 4)),
-    plot.subtitle      = element_text(size = 10, colour = "#5C6E7A",
-                                      margin = margin(b = 12)),
-    plot.caption       = element_text(size = 8, colour = gris_l,
-                                      hjust = 0, margin = margin(t = 10)),
-    axis.text          = element_text(size = 9, colour = gris_t),
-    axis.title         = element_text(size = 9, colour = gris_t),
-    axis.title.x       = element_text(margin = margin(t = 8)),
-    axis.title.y       = element_text(margin = margin(r = 8)),
+    plot.title         = element_text(size = 18, face = "bold", colour = gris_t,
+                                      margin = margin(b = 5)),
+    plot.subtitle      = element_text(size = 13, colour = "#5C6E7A",
+                                      margin = margin(b = 14)),
+    plot.caption       = element_text(size = 10, colour = gris_l,
+                                      hjust = 0, margin = margin(t = 12)),
+    axis.text          = element_text(size = 12, colour = gris_t),
+    axis.title         = element_text(size = 12, colour = gris_t),
+    axis.title.x       = element_text(margin = margin(t = 10)),
+    axis.title.y       = element_text(margin = margin(r = 10)),
     legend.position    = "bottom",
-    legend.text        = element_text(size = 9, colour = gris_t),
+    legend.text        = element_text(size = 11, colour = gris_t),
     legend.title       = element_blank(),
-    legend.key.size    = unit(0.9, "lines"),
-    strip.text         = element_text(size = 10, face = "bold", colour = gris_t),
-    plot.margin        = margin(16, 20, 12, 16)
+    legend.key.size    = unit(1.1, "lines"),
+    strip.text         = element_text(size = 13, face = "bold", colour = gris_t),
+    plot.margin        = margin(20, 24, 14, 20)
   )
 
 # ── CARGA DE DATOS ─────────────────────────────────────────────────────
@@ -146,186 +147,200 @@ g1 <- ggplot(por_linea,
              aes(x = LINEA_CORTA, y = pct_ventas, fill = LINEA_CORTA)) +
   geom_col(width = 0.65, show.legend = FALSE) +
   geom_text(aes(label = paste0(round(pct_ventas, 1), "%  ·  ", items_unicos, " ref.")),
-            hjust = -0.08, size = 3.4, colour = gris_t, fontface = "bold") +
+            hjust = -0.08, size = 5.5, colour = gris_t, fontface = "bold") +
   coord_flip(clip = "off") +
   scale_fill_manual(values = paleta_lineas) +
   scale_y_continuous(
     labels = function(x) paste0(x, "%"),
-    limits = c(0, 105),
+    limits = c(0, 108),
     expand = c(0, 0)
   ) +
   labs(
     title    = "Participación en Ventas por Línea de Producto — Noviembre 2025",
-    subtitle = "Ingresos totales SAI: $474.8M · 1.792 referencias activas",
+    subtitle = "1.792 referencias activas · Fuente: SAI Open — Agrovariedades Triple A S.A.S",
     x        = NULL,
-    y        = "Participación en ventas (%)",
-    caption  = "Fuente: SAI Open — Agrovariedades Triple A S.A.S | Etiquetas: participación % y número de referencias del catálogo"
+    y        = "Participación en ventas (%)"
   ) +
   tema_aaa +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4))
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4),
+    plot.caption       = element_text(size = 13, colour = gris_l,
+                                      hjust = 0, margin = margin(t = 14))
+  )
+
+ggsave("g1_ventas_por_linea.png",   g1, width = 13, height = 7,   dpi = 200)
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  GRÁFICO 3 — Subcategorías dentro de Ferretería y Misceláneos
-#  "¿Qué vende Ferretería realmente?"
-# ══════════════════════════════════════════════════════════════════════
+# ── DECODIFICACIÓN FERRETERÍA (con DESCRIPCION para separar Transporte) ─
+subcat_ferr <- function(cls, desc) {
+  case_when(
+    str_detect(desc, "TRANSPORTE")     ~ "Transporte",
+    cls == 101010                       ~ "Construcción y materiales",
+    cls == 105010                       ~ "Pinturas y recubrimientos",
+    cls == 100501                       ~ "Limpieza del hogar",
+    cls == 101020                       ~ "Seguridad y elementos personales",
+    cls == 1010                         ~ "Detergentes y adhesivos",
+    cls == 106010                       ~ "Desinfectantes y piscina",
+    cls == 104010                       ~ "Herramientas de limpieza",
+    cls == 102010                       ~ "Materiales eléctricos",
+    cls == 103010                       ~ "Herramientas agrícolas",
+    TRUE                                ~ "Otros"
+  )
+}
+
+df <- df %>%
+  mutate(
+    SUBCAT = case_when(
+      DESCLINEA == "FERRETERIA Y MISCELANEOS" ~ subcat_ferr(CLASS, DESCRIPCION),
+      DESCLINEA == "INSUMOS AGROPECUARIOS"    ~ subcat_ins(CLASS),
+      TRUE ~ NA_character_
+    )
+  )
+
+# ── DATOS — top 6 ─────────────────────────────────────────────────────
 ferr_sub <- df %>%
   filter(DESCLINEA == "FERRETERIA Y MISCELANEOS", !is.na(SUBCAT)) %>%
   group_by(SUBCAT) %>%
-  summarise(
-    ventas       = sum(EXTEND, na.rm = TRUE),
-    items_unicos = n_distinct(ITEM),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    pct        = ventas / sum(ventas) * 100,
-    SUBCAT     = fct_reorder(SUBCAT, ventas),
-    etiqueta   = paste0("$", round(ventas / 1e6, 1), "M  (", round(pct, 1), "%)")
-  )
+  summarise(ventas       = sum(EXTEND, na.rm = TRUE),
+            items_unicos = n_distinct(ITEM), .groups = "drop") %>%
+  mutate(pct = ventas / sum(ventas) * 100) %>%
+  slice_max(ventas, n = 6) %>%
+  mutate(SUBCAT = fct_reorder(SUBCAT, ventas))
 
-paleta_ferr <- colorRampPalette(c(azul_5, azul_3, azul_1))(nrow(ferr_sub))
-
-g3 <- ggplot(ferr_sub,
-             aes(x = SUBCAT, y = ventas / 1e6, fill = SUBCAT)) +
-  geom_col(width = 0.65, show.legend = FALSE) +
-  geom_text(aes(label = etiqueta),
-            hjust = -0.06, size = 2.9, colour = gris_t) +
-  geom_text(aes(label = paste0(items_unicos, " ref.")),
-            hjust = -0.06, vjust = 2.5, size = 2.5, colour = gris_l) +
-  coord_flip(clip = "off") +
-  scale_fill_manual(values = setNames(paleta_ferr, levels(ferr_sub$SUBCAT))) +
-  scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
-                          big.mark = "."),
-    limits = c(0, 430),
-    expand = c(0, 0)
-  ) +
-  labs(
-    title    = "Ferretería y Misceláneos — Subcategorías",
-    subtitle = "Total línea: $368.3M · 1.424 referencias · 6.361 ítems facturados",
-    x        = NULL,
-    y        = "Ventas (millones COP)",
-    caption  = "Fuente: SAI Open · Subcategorías derivadas del código de clasificación (CLASS)"
-  ) +
-  tema_aaa +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4))
-
-# ══════════════════════════════════════════════════════════════════════
-#  GRÁFICO 4 — Subcategorías dentro de Insumos Agropecuarios
-#  "¿Qué tipo de insumos mueve el área agro?"
-# ══════════════════════════════════════════════════════════════════════
 ins_sub <- df %>%
   filter(DESCLINEA == "INSUMOS AGROPECUARIOS", !is.na(SUBCAT)) %>%
   group_by(SUBCAT) %>%
-  summarise(
-    ventas       = sum(EXTEND, na.rm = TRUE),
-    items_unicos = n_distinct(ITEM),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    pct      = ventas / sum(ventas) * 100,
-    SUBCAT   = fct_reorder(SUBCAT, ventas),
-    etiqueta = paste0("$", round(ventas / 1e6, 1), "M  (", round(pct, 1), "%)")
+  summarise(ventas       = sum(EXTEND, na.rm = TRUE),
+            items_unicos = n_distinct(ITEM), .groups = "drop") %>%
+  mutate(pct = ventas / sum(ventas) * 100) %>%
+  slice_max(ventas, n = 6) %>%
+  mutate(SUBCAT = fct_reorder(SUBCAT, ventas))
+
+paleta_ferr <- colorRampPalette(c(azul_4, azul_1))(6)
+paleta_ins  <- colorRampPalette(c(azul_4, azul_1))(6)
+
+# tema reducido para panel combinado (títulos más pequeños, más margen)
+tema_panel <- tema_aaa +
+  theme(
+    plot.title         = element_text(size = 15, face = "bold", colour = gris_t,
+                                      margin = margin(b = 4)),
+    plot.subtitle      = element_text(size = 11, colour = "#5C6E7A",
+                                      margin = margin(b = 10)),
+    plot.caption       = element_text(size = 10, colour = gris_l,
+                                      hjust = 0, margin = margin(t = 10)),
+    axis.text          = element_text(size = 11, colour = gris_t),
+    axis.title         = element_text(size = 11, colour = gris_t),
+    panel.grid.major.y = element_blank(),
+    panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4),
+    plot.margin        = margin(16, 28, 12, 16)
   )
 
-paleta_ins <- colorRampPalette(c(azul_5, azul_3, azul_1))(nrow(ins_sub))
+g3A <- ggplot(ferr_sub, aes(x = SUBCAT, y = pct, fill = SUBCAT)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = paste0(round(pct, 1), "%  ·  ", items_unicos, " ref.")),
+            hjust = -0.08, size = 4.8, colour = gris_t, fontface = "bold") +
+  coord_flip(clip = "off") +
+  scale_fill_manual(values = setNames(paleta_ferr, levels(ferr_sub$SUBCAT))) +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     limits = c(0, 130), expand = c(0, 0)) +
+  labs(title    = "Ferretería y Misceláneos",
+       subtitle = "Top 6 subcategorías · 1.424 referencias",
+       x = NULL, y = "Participación dentro de la línea (%)") +
+  tema_panel
 
-g4 <- ggplot(ins_sub,
-             aes(x = SUBCAT, y = ventas / 1e6, fill = SUBCAT)) +
-  geom_col(width = 0.65, show.legend = FALSE) +
-  geom_text(aes(label = etiqueta),
-            hjust = -0.06, size = 2.9, colour = gris_t) +
-  geom_text(aes(label = paste0(items_unicos, " ref.")),
-            hjust = -0.06, vjust = 2.5, size = 2.5, colour = gris_l) +
+g4A <- ggplot(ins_sub, aes(x = SUBCAT, y = pct, fill = SUBCAT)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = paste0(round(pct, 1), "%  ·  ", items_unicos, " ref.")),
+            hjust = -0.08, size = 4.8, colour = gris_t, fontface = "bold") +
   coord_flip(clip = "off") +
   scale_fill_manual(values = setNames(paleta_ins, levels(ins_sub$SUBCAT))) +
-  scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
-                          big.mark = "."),
-    limits = c(0, 42),
-    expand = c(0, 0)
-  ) +
-  labs(
-    title    = "Insumos Agropecuarios — Subcategorías",
-    subtitle = "Total línea: $94.7M · 288 referencias · 1.912 ítems facturados",
-    x        = NULL,
-    y        = "Ventas (millones COP)",
-    caption  = "Fuente: SAI Open · Subcategorías derivadas del código de clasificación (CLASS)"
-  ) +
-  tema_aaa +
-  theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4))
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     limits = c(0, 52), expand = c(0, 0)) +
+  labs(title    = "Insumos Agropecuarios",
+       subtitle = "Top 6 subcategorías · 288 referencias",
+       x = NULL, y = "Participación dentro de la línea (%)") +
+  tema_panel
 
-# ══════════════════════════════════════════════════════════════════════
-#  GRÁFICO 5 — Top 15 productos más vendidos (por ingresos)
-#  "¿Cuáles son los productos estrella?"
-# ══════════════════════════════════════════════════════════════════════
-top15 <- df %>%
+# combinar y exportar como UNA sola imagen
+panel_subcategorias <- g3A + g4A +
+  plot_annotation(
+    title   = "Subcategorías por Línea de Producto — Noviembre 2025",
+    caption = "Fuente: SAI Open — Agrovariedades Triple A S.A.S · Subcategorías derivadas del código CLASS",
+    theme   = theme(
+      plot.title   = element_text(size = 18, face = "bold", colour = gris_t,
+                                  margin = margin(b = 6)),
+      plot.caption = element_text(size = 15, colour = gris_l, hjust = 0)
+    )
+  )
+
+ggsave("g34_subcategorias_panel.png",
+       panel_subcategorias,
+       width = 22, height = 8, dpi = 200)
+
+# ── EXPORTAR ───────────────────────────────────────────────────────────
+ggsave("g3A_subcategorias_ferr.png", g3A, width = 12, height = 7.5, dpi = 200)
+ggsave("g4A_subcategorias_ins.png",  g4A, width = 12, height = 7.5, dpi = 200)
+
+
+# ── DATOS — top 10 productos ───────────────────────────────────────────
+top10 <- df %>%
   group_by(DESCRIPCION, DESCLINEA) %>%
   summarise(
-    ventas    = sum(EXTEND, na.rm = TRUE),
-    unidades  = sum(QTYSHIP, na.rm = TRUE),
-    .groups = "drop"
+    ventas   = sum(EXTEND, na.rm = TRUE),
+    unidades = sum(QTYSHIP, na.rm = TRUE),
+    .groups  = "drop"
   ) %>%
-  slice_max(ventas, n = 15) %>%
+  slice_max(ventas, n = 10) %>%
   mutate(
-    DESCRIPCION = str_wrap(DESCRIPCION, 30),
+    pct         = ventas / sum(df$EXTEND, na.rm = TRUE) * 100,
+    DESCRIPCION = str_to_title(str_wrap(DESCRIPCION, 28)),
     DESCRIPCION = fct_reorder(DESCRIPCION, ventas),
     linea_corta = case_when(
       DESCLINEA == "FERRETERIA Y MISCELANEOS" ~ "Ferretería",
       DESCLINEA == "INSUMOS AGROPECUARIOS"    ~ "Insumos Agro",
       TRUE ~ DESCLINEA
-    )
+    ),
+    etiqueta = paste0(round(pct, 1), "%  ·  ",
+                      format(round(unidades), big.mark = ".", decimal.mark = ","),
+                      " uds.")
   )
 
-g5 <- ggplot(top15,
-             aes(x = DESCRIPCION, y = ventas / 1e6,
-                 fill = linea_corta)) +
-  geom_col(width = 0.65) +
-  geom_text(aes(label = paste0("$", round(ventas / 1e6, 1), "M")),
-            hjust = -0.1, size = 2.9, colour = gris_t, fontface = "bold") +
+# ── G5 — Top 10 ────────────────────────────────────────────────────────
+g5 <- ggplot(top10,
+             aes(x = DESCRIPCION, y = pct, fill = linea_corta)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = etiqueta),
+            hjust = -0.08, size = 5.0, colour = gris_t, fontface = "bold") +
   coord_flip(clip = "off") +
   scale_fill_manual(
     values = c("Ferretería" = azul_2, "Insumos Agro" = azul_4)
   ) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
-                          big.mark = "."),
-    limits = c(0, 30),
+    labels = function(x) paste0(x, "%"),
+    limits = c(0, 10),
     expand = c(0, 0)
   ) +
   labs(
-    title    = "Top 15 Productos por Ventas — Noviembre 2025",
-    subtitle = "El cemento gris lidera con $23.4M · 2° lugar: Transporte ($8.2M)",
+    title    = "Top 10 Productos más Vendidos — Noviembre 2025",
+    subtitle = "Participación sobre el total de ventas SAI · color por línea de producto",
     x        = NULL,
-    y        = "Ventas (millones COP)",
-    caption  = "Fuente: SAI Open · El servicio de Transporte aparece registrado como ítem CLASS 100501 en Ferretería"
+    y        = "Participación en ventas totales (%)",
+    caption  = "Fuente: SAI Open — Agrovariedades Triple A S.A.S · Etiquetas: % participación y unidades vendidas"
   ) +
   tema_aaa +
   theme(panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.4))
 
-# ══════════════════════════════════════════════════════════════════════
-#  GRÁFICO 7 — Distribución diaria de facturas emitidas (actividad)
-#  "¿Cómo es el ritmo de operación del negocio?"
-# ══════════════════════════════════════════════════════════════════════
-por_dia <- df %>%
-  mutate(DIA = as.integer(format(as.Date(FECHA), "%d"))) %>%
-  group_by(DIA) %>%
-  summarise(
-    facturas = n_distinct(NUMBER),
-    ventas   = sum(EXTEND, na.rm = TRUE),
-    .groups  = "drop"
-  )
+# ── EXPORTAR ───────────────────────────────────────────────────────────
+ggsave("g5_top10_productos.png", g5, width = 13, height = 8, dpi = 200)
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  EXPORTAR todos los gráficos
-# ══════════════════════════════════════════════════════════════════════
 
-ggsave("g1_ventas_por_linea.png",      g1, width = 10, height = 5.5, dpi = 160)
-ggsave("g3_subcategorias_ferr.png",    g3, width = 11, height = 5.5, dpi = 160)
-ggsave("g4_subcategorias_ins.png",     g4, width = 11, height = 5.5, dpi = 160)
-ggsave("g5_top15_productos.png",       g5, width = 11, height = 7,   dpi = 160)
+# ─────────────────────────────────────────────────────────────
+
+
+
+
+
+
