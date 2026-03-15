@@ -11,7 +11,7 @@ library(scales)
 library(tidyr)
 library(forcats)
 library(stringr)
-
+library(patchwork)
 # ── PALETA Y TEMA ──────────────────────────────────────────────────────
 azul_1  <- "#0D2B55"
 azul_2  <- "#1B5E8A"
@@ -31,7 +31,7 @@ tema_aaa <- theme_minimal(base_family = "sans") +
     panel.grid.minor   = element_blank(),
     plot.title         = element_text(size = 18, face = "bold", colour = gris_t,
                                       margin = margin(b = 5)),
-    plot.subtitle      = element_text(size = 1, colour = "#5C6E7A",
+    plot.subtitle      = element_text(size = 15, colour = "#5C6E7A",
                                       margin = margin(b = 14)),
     plot.caption       = element_text(size = 15, colour = gris_l,
                                       hjust = 0, margin = margin(t = 12)),
@@ -98,8 +98,7 @@ nov <- df %>%
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  A1 — Ventas mensuales: SAI vs. Fuera del sistema + total en la cima
-#  (versión mejorada de la que ya tienes — con el total arriba de la barra)
+#  A1 — Ventas mensuales: SAI vs. Fuera del sistema
 # ══════════════════════════════════════════════════════════════════════
 a1_long <- mensual %>%
   select(mes_etiq, ventas_sai, ferr_otros, ventas_reales) %>%
@@ -112,7 +111,6 @@ a1_long <- mensual %>%
 
 a1 <- ggplot(a1_long, aes(x = mes_etiq, y = valor / 1e6, fill = tipo)) +
   geom_col(width = 0.72) +
-  # total encima de cada barra
   geom_text(
     data = mensual,
     aes(x = mes_etiq, y = ventas_reales / 1e6,
@@ -125,7 +123,7 @@ a1 <- ggplot(a1_long, aes(x = mes_etiq, y = valor / 1e6, fill = tipo)) +
     "Digitalizadas al final del día"  = azul_4
   )) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     limits = c(0, 820), expand = c(0, 0)
   ) +
@@ -139,6 +137,7 @@ a1 <- ggplot(a1_long, aes(x = mes_etiq, y = valor / 1e6, fill = tipo)) +
   tema_aaa
 
 ggsave("A1_ventas_mensual_sai_vs_real.png", a1, width = 14, height = 7, dpi = 200)
+
 
 # ══════════════════════════════════════════════════════════════════════
 #  A2 — % mensual fuera del sistema (monto)
@@ -169,24 +168,26 @@ a2 <- ggplot(mensual, aes(x = mes_etiq, y = pct_fuera)) +
 
 ggsave("A2_pct_fuera_mensual.png", a2, width = 14, height = 7, dpi = 200)
 
+
 # ══════════════════════════════════════════════════════════════════════
 #  A3 — Ventas mensuales Agro vs. Ferretería SAI
 # ══════════════════════════════════════════════════════════════════════
 a3_long <- mensual %>%
-  select(mes_etiq, agro_sai, ferr_sai) %>%
-  pivot_longer(c(agro_sai, ferr_sai),
+  mutate(ferr_total = ferr_sai + ferr_otros) %>%   # ← ferretería completa
+  select(mes_etiq, agro_sai, ferr_total) %>%
+  pivot_longer(c(agro_sai, ferr_total),
                names_to  = "canal",
                values_to = "valor") %>%
   mutate(canal = recode(canal,
-                        agro_sai = "Agro (SAI)",
-                        ferr_sai = "Ferretería (SAI)"))
+                        agro_sai   = "Agro",
+                        ferr_total = "Ferretería"))
 
 a3 <- ggplot(a3_long, aes(x = mes_etiq, y = valor / 1e6, fill = canal)) +
   geom_col(position = "dodge", width = 0.7) +
-  scale_fill_manual(values = c("Agro (SAI)" = azul_1,
+  scale_fill_manual(values = c("Agro (SAI)"       = azul_1,
                                "Ferretería (SAI)" = azul_4)) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     limits = c(0, 230), expand = c(0, 0)
   ) +
@@ -200,6 +201,7 @@ a3 <- ggplot(a3_long, aes(x = mes_etiq, y = valor / 1e6, fill = canal)) +
   tema_aaa
 
 ggsave("A3_agro_vs_ferreteria_mensual.png", a3, width = 14, height = 7, dpi = 200)
+
 
 # ══════════════════════════════════════════════════════════════════════
 #  A4 — Ventas reales vs. Gastos operativos mensuales
@@ -220,7 +222,7 @@ a4 <- ggplot(a4_long, aes(x = mes_etiq, y = valor / 1e6,
   scale_colour_manual(values = c("Ventas reales totales" = azul_1,
                                  "Gastos operativos"     = azul_4)) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     expand = c(0.05, 0)
   ) +
@@ -236,11 +238,10 @@ a4 <- ggplot(a4_long, aes(x = mes_etiq, y = valor / 1e6,
 
 ggsave("A4_ventas_vs_gastos_mensual.png", a4, width = 14, height = 7, dpi = 200)
 
+
 # ══════════════════════════════════════════════════════════════════════
 #  A5 — Ingresos mensuales por medio de pago (stacked + % interno)
 # ══════════════════════════════════════════════════════════════════════
-
-# ── A5 ─────────────────────────────────────────────────────────────────
 pago_long <- mensual %>%
   mutate(
     pct_ef = efectivo      / ventas_reales * 100,
@@ -287,7 +288,7 @@ a5 <- ggplot(pago_long, aes(x = mes_etiq, y = valor / 1e6, fill = medio)) +
     "Transferencia" = azul_5
   )) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M",
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     limits = c(0, 850),
     expand = c(0, 0)
@@ -304,8 +305,10 @@ a5 <- ggplot(pago_long, aes(x = mes_etiq, y = valor / 1e6, fill = medio)) +
         legend.key.size = unit(1.3, "lines"))
 
 ggsave("A5_medios_pago_mensual.png", a5, width = 15, height = 8, dpi = 200)
+
+
 # ══════════════════════════════════════════════════════════════════════
-#  N1 — Noviembre: ventas diarias SAI vs. Fuera del sistema + total
+#  N1 — Noviembre: ventas diarias SAI vs. Fuera del sistema
 # ══════════════════════════════════════════════════════════════════════
 n1_long <- nov %>%
   select(DIA, VENTAS_SAI, FERR_OTROS, VENTAS_REALES) %>%
@@ -331,7 +334,7 @@ n1 <- ggplot(n1_long, aes(x = DIA, y = valor / 1e6, fill = tipo)) +
   )) +
   scale_x_continuous(breaks = 1:30) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     limits = c(0, 52), expand = c(0, 0)
   ) +
@@ -345,6 +348,7 @@ n1 <- ggplot(n1_long, aes(x = DIA, y = valor / 1e6, fill = tipo)) +
   tema_aaa
 
 ggsave("N1_nov_ventas_sai_vs_real.png", n1, width = 16, height = 7, dpi = 200)
+
 
 # ══════════════════════════════════════════════════════════════════════
 #  N2 — Noviembre: % diario fuera del sistema con promedio
@@ -376,13 +380,14 @@ n2 <- ggplot(nov, aes(x = DIA, y = pct_fuera_dia)) +
 
 ggsave("N2_nov_pct_fuera_diario.png", n2, width = 16, height = 7, dpi = 200)
 
+
 # ══════════════════════════════════════════════════════════════════════
 #  N3 — Noviembre: Facturas diarias SAI vs. tardías (barras apiladas)
 # ══════════════════════════════════════════════════════════════════════
 nov_fact <- nov %>%
   mutate(
-    fact_tarde    = FACT_OTROS,
-    fact_sai      = FACT_SAI_TOT
+    fact_tarde = FACT_OTROS,
+    fact_sai   = FACT_SAI_TOT
   )
 
 n3_long <- nov_fact %>%
@@ -419,15 +424,16 @@ n3 <- ggplot(n3_long, aes(x = DIA, y = valor, fill = tipo)) +
 
 ggsave("N3_nov_facturas_apiladas.png", n3, width = 16, height = 7, dpi = 200)
 
+
 # ══════════════════════════════════════════════════════════════════════
 #  N4 — Noviembre: Ingresos diarios por medio de pago
 # ══════════════════════════════════════════════════════════════════════
 nov_pago <- nov %>%
   mutate(
     efectivo_nov = VENTAS_SAI - TARJETA - TRANSFERENCIA,
-    pct_ef       = efectivo_nov / VENTAS_REALES * 100,
-    pct_tj       = TARJETA      / VENTAS_REALES * 100,
-    pct_tr       = TRANSFERENCIA/ VENTAS_REALES * 100
+    pct_ef       = efectivo_nov  / VENTAS_REALES * 100,
+    pct_tj       = TARJETA       / VENTAS_REALES * 100,
+    pct_tr       = TRANSFERENCIA / VENTAS_REALES * 100
   ) %>%
   select(DIA, efectivo_nov, TARJETA, TRANSFERENCIA,
          pct_ef, pct_tj, pct_tr, VENTAS_REALES) %>%
@@ -466,7 +472,7 @@ n4 <- ggplot(nov_pago, aes(x = DIA, y = valor / 1e6, fill = medio)) +
                                "Transferencia" = azul_5)) +
   scale_x_continuous(breaks = 1:30) +
   scale_y_continuous(
-    labels = label_dollar(prefix = "$", suffix = "M", scale = 1/1e6,
+    labels = label_dollar(prefix = "$", suffix = "M",   # ← sin scale=1/1e6
                           big.mark = ".", decimal.mark = ","),
     limits = c(0, 52), expand = c(0, 0)
   ) +
@@ -480,3 +486,112 @@ n4 <- ggplot(nov_pago, aes(x = DIA, y = valor / 1e6, fill = medio)) +
   tema_aaa
 
 ggsave("N4_nov_medios_pago_diario.png", n4, width = 16, height = 7.5, dpi = 200)
+
+
+# ══════════════════════════════════════════════════════════════════════
+message("✓ 9 gráficos exportados:")
+message("  Anuales:    A1 A2 A3 A4 A5")
+message("  Noviembre:  N1 N2 N3 N4")
+
+
+
+
+
+# ── PANEL A1 + A5 ──────────────────────────────────────────────────────
+
+# Versiones compactas para el panel (títulos más cortos, márgenes ajustados)
+tema_panel <- tema_aaa +
+  theme(
+    plot.title    = element_text(size = 15, face = "bold", colour = gris_t,
+                                 margin = margin(b = 4)),
+    plot.subtitle = element_text(size = 11, colour = "#5C6E7A",
+                                 margin = margin(b = 10)),
+    plot.caption  = element_text(size = 10, colour = gris_l,
+                                 hjust = 0, margin = margin(t = 8)),
+    axis.text     = element_text(size = 11, colour = gris_t),
+    axis.title    = element_text(size = 11, colour = gris_t),
+    legend.text   = element_text(size = 10, colour = gris_t),
+    plot.margin   = margin(14, 20, 10, 14)
+  )
+
+library(patchwork)
+
+tema_panel <- tema_aaa +
+  theme(
+    plot.title    = element_text(size = 15, face = "bold", colour = gris_t,
+                                 margin = margin(b = 4)),
+    plot.subtitle = element_text(size = 11, colour = "#5C6E7A",
+                                 margin = margin(b = 10)),
+    plot.caption  = element_text(size = 10, colour = gris_l,
+                                 hjust = 0, margin = margin(t = 8)),
+    axis.text     = element_text(size = 11, colour = gris_t),
+    axis.title    = element_text(size = 11, colour = gris_t),
+    legend.text   = element_text(size = 10, colour = gris_t),
+    plot.margin   = margin(14, 20, 10, 14)
+  )
+
+# A3 versión panel
+a3_panel <- ggplot(a3_long, aes(x = mes_etiq, y = valor / 1e6, fill = canal)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = paste0("$", round(valor / 1e6, 0), "M")),
+            position = position_dodge(width = 0.7),
+            vjust = -0.5, size = 3.6, colour = gris_t, fontface = "bold") +
+  scale_fill_manual(values = c("Agro"        = azul_1,
+                               "Ferretería"  = azul_4)) +
+  scale_y_continuous(
+    labels = label_dollar(prefix = "$", suffix = "M",
+                          big.mark = ".", decimal.mark = ","),
+    limits = c(0, 620), expand = c(0, 0)
+  ) +
+  labs(
+    title    = "Ventas por Canal — Agro vs. Ferretería",
+    subtitle = "Ferretería incluye ventas SAI inmediatas + digitalizadas al cierre del día",
+    x = NULL, y = "Millones de pesos (COP)"
+  ) +
+  tema_panel
+
+# A5 versión panel
+a5_panel <- ggplot(pago_long, aes(x = mes_etiq, y = valor / 1e6, fill = medio)) +
+  geom_col(width = 0.72) +
+  geom_text(aes(label = pct_label),
+            position = position_stack(vjust = 0.5),
+            size = 3.8, colour = "white", fontface = "bold") +
+  geom_text(
+    data = mensual,
+    aes(x = mes_etiq, y = ventas_reales / 1e6,
+        label = paste0("$", round(ventas_reales / 1e6, 0), "M")),
+    inherit.aes = FALSE,
+    vjust = -0.45, size = 3.6, colour = gris_t, fontface = "bold"
+  ) +
+  scale_fill_manual(values = c(
+    "Efectivo"      = azul_1,
+    "Tarjeta"       = azul_3,
+    "Transferencia" = azul_5
+  )) +
+  scale_y_continuous(
+    labels = label_dollar(prefix = "$", suffix = "M",
+                          big.mark = ".", decimal.mark = ","),
+    limits = c(0, 850), expand = c(0, 0)
+  ) +
+  labs(
+    title    = "Ingresos por Medio de Pago",
+    subtitle = "% dentro de cada segmento = participación en el total del mes",
+    x = NULL, y = "Millones de pesos (COP)") +
+  tema_panel +
+  theme(legend.text = element_text(size = 10))
+
+# Combinar
+panel_canales_pago <- a3_panel + a5_panel +
+  plot_annotation(
+    title   = "Análisis de Ingresos Mensuales — 2025",
+    caption = "Fuente: Cuadres de caja diarios · Agrovariedades Triple A S.A.S",
+    theme   = theme(
+      plot.title   = element_text(size = 18, face = "bold", colour = gris_t,
+                                  margin = margin(b = 8)),
+      plot.caption = element_text(size = 15, colour = gris_l, hjust = 0)
+    )
+  )
+
+ggsave("panel_canales_pago.png",
+       panel_canales_pago,
+       width = 24, height = 8, dpi = 200)
