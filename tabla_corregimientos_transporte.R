@@ -1,5 +1,5 @@
 # ============================================================
-# TABLA – CORREGIMIENTOS: RESUMEN DE TRANSPORTES
+# TABLA – CORREGIMIENTOS: RESUMEN DE TRANSPORTES (AMPLIADO)
 # Requiere: install.packages(c("gt", "dplyr"))
 # ============================================================
 
@@ -15,18 +15,25 @@ corr_data <- data.frame(
     "San Bernardo",   "El Queremal",  "El Palmar",
     "El Salado",      "VillaHermosa", "Total"
   ),
-  Total_transportes  = c(91, 85, 16, 13, 13, 12, 8, 2, 240),
-  Valor_total        = c(4155000, 4775000, 800000, 795000, 841000,
-                         700000,  560000,  265000, NA),
-  Valor_promedio     = c(34945.05, 51235.29, 44375.00, 58846.15,
-                         61615.38, 45833.33, 57500.00, 72500.00, NA),
-  Distancia_promedio = c(2.451, 4.490, 5.631, 6.391,
-                         10.398, 3.436, 11.976, 6.788, NA),
+  Total_transportes  = c(91, 85, 17, 12, 13, 12, 8, 2, 240),
+  Valor_total        = c(4155000, 4775000, 870000, 725000, 841000,
+                         700000,  560000,  250000, NA),
+  Distancia_promedio = c(2.451,  4.490,  5.747,  6.290,
+                         10.398, 3.436, 11.976,  6.788, NA),
+  Valor_promedio     = c(34945.05, 51235.29, 45882.35, 57916.67,
+                         61615.38, 45833.33, 57500.00, 75000.00, NA),
+  Costo_ABC          = c(47447.98, 52871.94, 56619.87, 57853.73,
+                         67185.94, 49751.92, 73324.34, 59209.39, NA),
+  # Valores como fracción decimal para fmt_percent()
+  Perdida_margen     = c(-0.1814, -0.0431, -0.3317,  0.0011,
+                          0.0684, -0.0251, -0.1877,  0.1534, NA),
   stringsAsFactors   = FALSE
 )
 
-idx_data  <- which(corr_data$tipo == "data")
-idx_total <- which(corr_data$tipo == "total")
+idx_data        <- which(corr_data$tipo == "data")
+idx_total       <- which(corr_data$tipo == "total")
+idx_perd_neg    <- which(corr_data$Perdida_margen < 0)   # pérdida real
+idx_perd_pos    <- which(corr_data$Perdida_margen > 0)   # ganancia real
 
 # ── 2. Construir tabla gt ─────────────────────────────────────────────────────
 tabla <- corr_data |>
@@ -35,32 +42,32 @@ tabla <- corr_data |>
 
   tab_header(
     title    = md("**Corregimientos \u2013 Resumen de Transportes**"),
-    subtitle = md("*Totales y promedios por corregimiento de entrega*")
+    subtitle = md("*Comparativo cobrado vs costo ABC por corregimiento*")
   ) |>
 
   cols_label(
     Corregimiento      = md("**Corregimiento**"),
     Total_transportes  = md("**Total de<br>transportes**"),
     Valor_total        = md("**Valor total de<br>transporte**"),
-    Valor_promedio     = md("**Valor promedio de<br>transporte**"),
-    Distancia_promedio = md("**Distancia promedio<br>(km)**")
+    Distancia_promedio = md("**Distancia<br>promedio (km)**"),
+    Valor_promedio     = md("**Valor promedio<br>cobrado**"),
+    Costo_ABC          = md("**Costo promedio<br>ABC**"),
+    Perdida_margen     = md("**P\u00e9rdida<br>promedio**")
   ) |>
 
-  # Formato entero para conteo
+  # ── Formato de números ──────────────────────────────────────────────────────
   fmt_integer(
     columns  = Total_transportes,
     sep_mark = "."
   ) |>
-  # Formato moneda COP (. miles, , decimal)
   fmt_currency(
-    columns  = c(Valor_total, Valor_promedio),
+    columns  = c(Valor_total, Valor_promedio, Costo_ABC),
     rows     = idx_data,
     currency = "COP",
     decimals = 2,
     sep_mark = ".",
     dec_mark = ","
   ) |>
-  # Formato distancia (3 decimales, , decimal)
   fmt_number(
     columns  = Distancia_promedio,
     rows     = idx_data,
@@ -68,23 +75,34 @@ tabla <- corr_data |>
     dec_mark = ",",
     sep_mark = "."
   ) |>
-  # NA en fila total → celda vacía
+  fmt_percent(
+    columns  = Perdida_margen,
+    rows     = idx_data,
+    decimals = 2,
+    dec_mark = ",",
+    sep_mark = "."
+  ) |>
   sub_missing(
     columns      = everything(),
     rows         = idx_total,
     missing_text = ""
   ) |>
 
+  # ── Alineación ──────────────────────────────────────────────────────────────
   cols_align(align = "left",  columns = Corregimiento) |>
   cols_align(align = "right", columns = c(Total_transportes, Valor_total,
-                                           Valor_promedio, Distancia_promedio)) |>
+                                           Distancia_promedio, Valor_promedio,
+                                           Costo_ABC, Perdida_margen)) |>
 
+  # ── Anchos ──────────────────────────────────────────────────────────────────
   cols_width(
-    Corregimiento      ~ px(155),
-    Total_transportes  ~ px(105),
-    Valor_total        ~ px(175),
-    Valor_promedio     ~ px(185),
-    Distancia_promedio ~ px(135)
+    Corregimiento      ~ px(140),
+    Total_transportes  ~ px(90),
+    Valor_total        ~ px(155),
+    Distancia_promedio ~ px(115),
+    Valor_promedio     ~ px(165),
+    Costo_ABC          ~ px(165),
+    Perdida_margen     ~ px(110)
   ) |>
 
   # ── Encabezado de columnas ──────────────────────────────────────────────────
@@ -96,7 +114,7 @@ tabla <- corr_data |>
     locations = cells_column_labels()
   ) |>
 
-  # ── Filas de datos (alternadas azul claro / blanco) ─────────────────────────
+  # ── Filas de datos (alternadas) ─────────────────────────────────────────────
   tab_style(
     style = cell_fill(color = "#EAF1FB"),
     locations = cells_body(rows = idx_data[seq(1, length(idx_data), by = 2)])
@@ -112,12 +130,23 @@ tabla <- corr_data |>
   tab_style(
     style = cell_text(color = "#1B3A5C"),
     locations = cells_body(columns = c(Total_transportes, Valor_total,
-                                        Valor_promedio, Distancia_promedio),
+                                        Distancia_promedio, Valor_promedio,
+                                        Costo_ABC),
                            rows = idx_data)
   ) |>
   tab_style(
     style = cell_borders(sides = "bottom", color = "#B0C4DE", weight = px(1)),
     locations = cells_body(rows = idx_data)
+  ) |>
+
+  # ── Pérdida: negativa en rojo, positiva en verde ────────────────────────────
+  tab_style(
+    style = cell_text(color = "#C0392B", weight = "bold"),
+    locations = cells_body(columns = Perdida_margen, rows = idx_perd_neg)
+  ) |>
+  tab_style(
+    style = cell_text(color = "#1A7A3C", weight = "bold"),
+    locations = cells_body(columns = Perdida_margen, rows = idx_perd_pos)
   ) |>
 
   # ── Fila TOTAL ──────────────────────────────────────────────────────────────
@@ -150,7 +179,7 @@ tabla <- corr_data |>
   # ── Nota al pie ────────────────────────────────────────────────────────────
   tab_source_note(
     source_note = md(
-      "*Fuente: Base de datos de entregas \u2014 Resumen por corregimiento de entrega*"
+      "*Fuente: Base de datos de entregas \u2014 Comparativo cobrado vs costo ABC por corregimiento*"
     )
   ) |>
   tab_style(
@@ -160,7 +189,7 @@ tabla <- corr_data |>
 
   # ── Opciones generales ─────────────────────────────────────────────────────
   tab_options(
-    table.width                    = px(760),
+    table.width                    = px(945),
     table.border.top.color         = "#1B3A5C",
     table.border.top.width         = px(3),
     table.border.bottom.color      = "#1B3A5C",
