@@ -14,31 +14,33 @@ library(patchwork)
 # Asegurar codificacion UTF-8 para tildes y caracteres especiales
 Sys.setlocale("LC_ALL", "C.UTF-8")
 
-# ── PALETA VERDE Y TEMA ─────────────────────────────────────────────
-verde_1 <- "#0B3D2E"
-verde_2 <- "#14694E"
-verde_3 <- "#1E9E6B"
-verde_4 <- "#4EC98B"
-verde_5 <- "#A8E6C3"
-verde_6 <- "#D4F5E2"
-acento   <- "#FF6B35"
-gris_f  <- "#F2F7F4"
-gris_t  <- "#1C2E26"
-gris_l  <- "#7A9488"
+# ── PALETA AZUL CORPORATIVA Y TEMA ──────────────────────────────────
+azul_1  <- "#091F40"
+azul_2  <- "#0D2B55"
+azul_3  <- "#1B4F8A"
+azul_4  <- "#2E7ABF"
+azul_5  <- "#5BA3D9"
+azul_6  <- "#A4CEF0"
+azul_7  <- "#D6E9F8"
+acento  <- "#E8443A"
+dorado  <- "#D4A843"
+gris_f  <- "#F0F4F8"
+gris_t  <- "#1A2530"
+gris_l  <- "#7B8FA0"
 blanco  <- "#FFFFFF"
 
 tema_eh <- theme_minimal(base_family = "sans") +
   theme(
     plot.background    = element_rect(fill = blanco, colour = NA),
     panel.background   = element_rect(fill = gris_f, colour = NA),
-    panel.grid.major.y = element_line(colour = "#C8DDD2", linewidth = 0.35),
+    panel.grid.major.y = element_line(colour = "#D0DCE8", linewidth = 0.3),
     panel.grid.major.x = element_blank(),
     panel.grid.minor   = element_blank(),
-    plot.title         = element_text(size = 15, face = "bold", colour = verde_1,
-                                      margin = margin(b = 4)),
-    plot.subtitle      = element_text(size = 10, colour = gris_l,
+    plot.title         = element_text(size = 14, face = "bold", colour = azul_1,
+                                      margin = margin(b = 3)),
+    plot.subtitle      = element_text(size = 9.5, colour = gris_l,
                                       margin = margin(b = 14)),
-    plot.caption       = element_text(size = 7.5, colour = gris_l,
+    plot.caption       = element_text(size = 7, colour = gris_l,
                                       hjust = 0, margin = margin(t = 10)),
     axis.text          = element_text(size = 9, colour = gris_t),
     axis.title         = element_text(size = 9, colour = gris_t),
@@ -48,16 +50,12 @@ tema_eh <- theme_minimal(base_family = "sans") +
     legend.text        = element_text(size = 9, colour = gris_t),
     legend.title       = element_blank(),
     legend.key.size    = unit(0.9, "lines"),
-    strip.text         = element_text(size = 10, face = "bold", colour = verde_1),
+    strip.text         = element_text(size = 10, face = "bold", colour = azul_1),
     plot.margin        = margin(18, 22, 14, 18)
   )
 
 # ── CARGA DE DATOS ───────────────────────────────────────────────────
-# Copiar archivo para evitar problemas de codificación en la ruta
-archivo_original <- list.files(pattern = "Encuesta.*respuestas.*\\.xlsx", full.names = TRUE)
-archivo_tmp <- tempfile(fileext = ".xlsx")
-file.copy(archivo_original, archivo_tmp)
-df <- read_excel(archivo_tmp, sheet = "Respuestas de formulario 1")
+df <- read_excel("H.xlsx", sheet = "Respuestas de formulario 1")
 
 names(df) <- c("timestamp", "ultima_vez", "satisfaccion", "puntualidad",
                "entrega_cumplida", "tiempo_retraso", "aspecto_mejorar",
@@ -81,10 +79,10 @@ sat_df <- df %>%
     pct  = n / sum(n) * 100,
     satisfaccion = factor(satisfaccion),
     fill_color = case_when(
-      satisfaccion == "5" ~ verde_2,
-      satisfaccion == "4" ~ verde_3,
-      satisfaccion == "3" ~ verde_4,
-      satisfaccion == "2" ~ verde_5,
+      satisfaccion == "5" ~ azul_2,
+      satisfaccion == "4" ~ azul_4,
+      satisfaccion == "3" ~ azul_5,
+      satisfaccion == "2" ~ azul_6,
       satisfaccion == "1" ~ acento
     )
   )
@@ -116,10 +114,10 @@ punt_df <- df %>%
     pct  = n / sum(n) * 100,
     puntualidad = factor(puntualidad),
     fill_color = case_when(
-      puntualidad == "5" ~ verde_2,
-      puntualidad == "4" ~ verde_3,
-      puntualidad == "3" ~ verde_4,
-      puntualidad == "2" ~ verde_5,
+      puntualidad == "5" ~ azul_2,
+      puntualidad == "4" ~ azul_4,
+      puntualidad == "3" ~ azul_5,
+      puntualidad == "2" ~ azul_6,
       puntualidad == "1" ~ acento
     )
   )
@@ -163,7 +161,7 @@ uso_df <- df %>%
   ) %>%
   arrange(ultima_vez)
 
-paleta_uso <- c(verde_1, verde_2, verde_3, verde_4, verde_5)
+paleta_uso <- c(azul_1, azul_3, azul_4, azul_5, azul_6)
 
 g3 <- ggplot(uso_df, aes(x = etiqueta_corta, y = pct,
                            fill = factor(etiqueta_corta, levels = uso_df$etiqueta_corta))) +
@@ -190,7 +188,7 @@ entrega_df <- df %>%
   count(entrega_cumplida) %>%
   mutate(
     pct = n / sum(n) * 100,
-    fill_color = ifelse(grepl("^S", entrega_cumplida), verde_2, acento)
+    fill_color = ifelse(grepl("^S", entrega_cumplida), azul_3, acento)
   )
 
 g4 <- ggplot(entrega_df, aes(x = entrega_cumplida, y = pct, fill = fill_color)) +
@@ -225,7 +223,7 @@ retraso_df <- df %>%
   ) %>%
   arrange(tiempo_retraso)
 
-paleta_retraso <- colorRampPalette(c(verde_4, verde_2, verde_1))(nrow(retraso_df))
+paleta_retraso <- colorRampPalette(c(azul_6, azul_4, azul_1))(nrow(retraso_df))
 
 g5 <- ggplot(retraso_df, aes(x = tiempo_retraso, y = pct, fill = tiempo_retraso)) +
   geom_col(width = 0.6, show.legend = FALSE) +
@@ -262,7 +260,7 @@ aspecto_df <- as.data.frame(table(aspectos_lista), stringsAsFactors = FALSE) %>%
     aspecto = forcats::fct_reorder(aspecto, n)
   )
 
-paleta_asp <- colorRampPalette(c(verde_5, verde_3, verde_1))(nrow(aspecto_df))
+paleta_asp <- colorRampPalette(c(azul_7, azul_4, azul_1))(nrow(aspecto_df))
 
 g6 <- ggplot(aspecto_df, aes(x = aspecto, y = pct, fill = aspecto)) +
   geom_col(width = 0.6, show.legend = FALSE) +
@@ -281,7 +279,7 @@ g6 <- ggplot(aspecto_df, aes(x = aspecto, y = pct, fill = aspecto)) +
   ) +
   tema_eh +
   theme(panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(colour = "#C8DDD2", linewidth = 0.35))
+        panel.grid.major.x = element_line(colour = "#D0DCE8", linewidth = 0.3))
 
 # ══════════════════════════════════════════════════════════════════════
 #  G7 — ¿Recomendaría Entre Hilos?
@@ -291,7 +289,7 @@ rec_df <- df %>%
   count(recomendaria) %>%
   mutate(
     pct = n / sum(n) * 100,
-    fill_color = ifelse(grepl("^S", recomendaria), verde_2, acento)
+    fill_color = ifelse(grepl("^S", recomendaria), azul_3, acento)
   )
 
 g7 <- ggplot(rec_df, aes(x = recomendaria, y = pct, fill = fill_color)) +
@@ -334,16 +332,16 @@ dashboard <- (g1 | g2) /
     title    = "DASHBOARD  ·  Encuesta de Satisfacción  ·  Clínica de Ropa Entre Hilos",
     subtitle = paste0("91 respuestas recolectadas  ·  Marzo 2026  ·  Satisfacción promedio: ",
                       media_sat, "/5  ·  Puntualidad promedio: ", media_punt, "/5  ·  ",
-                      round(rec_df$pct[rec_df$recomendaria == "Sí"], 1), "% recomendaría el servicio"),
+                      round(rec_df$pct[grepl("^S", rec_df$recomendaria)], 1), "% recomendaría el servicio"),
     caption  = "Fuente: Google Forms — Encuesta de satisfacción · Clínica de Ropa Entre Hilos · Proyecto en Ingeniería I · Universidad del Valle · 2026-I",
     theme = theme(
-      plot.title    = element_text(size = 20, face = "bold", colour = verde_1,
+      plot.title    = element_text(size = 20, face = "bold", colour = azul_1,
                                     hjust = 0.5, margin = margin(b = 4)),
-      plot.subtitle = element_text(size = 11, colour = verde_3,
+      plot.subtitle = element_text(size = 11, colour = azul_4,
                                     hjust = 0.5, margin = margin(b = 16)),
       plot.caption  = element_text(size = 8, colour = gris_l,
                                     hjust = 0.5, margin = margin(t = 12)),
-      plot.background = element_rect(fill = blanco, colour = verde_5, linewidth = 1.5),
+      plot.background = element_rect(fill = blanco, colour = azul_6, linewidth = 1.5),
       plot.margin     = margin(20, 24, 16, 24)
     )
   )
