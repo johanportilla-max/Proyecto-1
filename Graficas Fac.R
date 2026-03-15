@@ -31,7 +31,7 @@ tema_aaa <- theme_minimal(base_family = "sans") +
     panel.grid.minor   = element_blank(),
     plot.title         = element_text(size = 18, face = "bold", colour = gris_t,
                                       margin = margin(b = 5)),
-    plot.subtitle      = element_text(size = 15, colour = "#5C6E7A",
+    plot.subtitle      = element_text(size = 1, colour = "#5C6E7A",
                                       margin = margin(b = 14)),
     plot.caption       = element_text(size = 15, colour = gris_l,
                                       hjust = 0, margin = margin(t = 12)),
