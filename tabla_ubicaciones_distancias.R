@@ -8,7 +8,7 @@ library(dplyr)
 
 # ── 1. Datos ─────────────────────────────────────────────────────────────────
 ubicaciones <- data.frame(
-  tipo      = c(rep("lugar", 64), "promedio"),
+  tipo      = c(rep("lugar", 63), "promedio"),
   Nombre    = c(
     "Agua Sucia", "Altos de las T\u00f3rtolas", "Altos del Carmen",
     "Azul y verde", "Bahondo", "Campamento Salom\u00f3n",
