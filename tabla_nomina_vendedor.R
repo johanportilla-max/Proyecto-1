@@ -1,5 +1,5 @@
 # ============================================================
-# NÓMINA – VENDEDOR
+# TABLA – NÓMINA VENDEDOR
 # Requiere: install.packages(c("gt", "dplyr"))
 # ============================================================
 
@@ -7,27 +7,30 @@ library(gt)
 library(dplyr)
 
 # ── 1. Datos ─────────────────────────────────────────────────────────────────
-# tipos: "devengado" | "subtotal_dev" | "prestacion" | "total" | "hora"
 nomina <- data.frame(
-  tipo     = c(
+  seccion = c(rep("nomina", 13), rep("datos", 3)),
+  tipo    = c(
     "devengado",    # Salario base
     "devengado",    # Horas extra diurna
-    "subtotal_dev", # Subtotal devengado
+    "subtotal_dev", # Subtotal devengado (base cálculo)
     "prestacion",   # Auxilio de transporte
     "prestacion",   # Pensión
     "prestacion",   # ARL
-    "prestacion",   # Caja de compensación
+    "prestacion",   # Caja de compensación familiar
     "prestacion",   # Vacaciones
     "prestacion",   # Cesantías
     "prestacion",   # Prima
-    "prestacion",   # Intereses de cesantías
-    "total",        # Total
-    "hora"          # Valor de la hora
+    "prestacion",   # Intereses de las cesantías
+    "total",        # TOTAL COSTO MENSUAL POR PERSONA
+    "hora",         # Valor de la hora (Total / 180)
+    "datos_cop",    # Total nómina mensual empresa
+    "datos_int",    # Número de vendedores
+    "datos_int"     # Horas mensuales por vendedor en facturación manual
   ),
   Concepto = c(
     "Salario base",
-    "Horas extra diurna (4)",
-    "Subtotal devengado",
+    "Horas extra diurna (4h \u00d7 $7.736/h)",
+    "Subtotal devengado (base c\u00e1lculo)",
     "Auxilio de transporte",
     "Pensi\u00f3n",
     "ARL",
@@ -36,77 +39,88 @@ nomina <- data.frame(
     "Cesant\u00edas",
     "Prima",
     "Intereses de las cesant\u00edas",
-    "Total",
-    "Valor de la hora (Total / 180)"
+    "TOTAL COSTO MENSUAL POR PERSONA",
+    "Valor de la hora (Total / 180)",
+    "Total n\u00f3mina mensual empresa",
+    "N\u00famero de vendedores",
+    "Horas mensuales por vendedor en facturaci\u00f3n manual"
   ),
-  Valor    = c(
+  Valor = c(
     1423500.00,
-    8088.00,
-    1455852.00,
+    38680.00,
+    1578220.00,
     200000.00,
-    174702.24,
-    63330.00,
-    58234.08,
-    59360.00,
-    137932.00,
-    137932.00,
-    9948.00,
-    2297290.32,
-    12762.72
+    189386.40,
+    68653.04,
+    63128.80,
+    64349.36,
+    149525.53,
+    149525.53,
+    10784.15,
+    2473572.81,
+    13742.07,
+    109936.57,
+    8,
+    5
   ),
   stringsAsFactors = FALSE
 )
 
-# Índices por tipo
+# Índices por tipo de fila
 idx_dev       <- which(nomina$tipo == "devengado")
 idx_sub_dev   <- which(nomina$tipo == "subtotal_dev")
 idx_prest     <- which(nomina$tipo == "prestacion")
 idx_total     <- which(nomina$tipo == "total")
 idx_hora      <- which(nomina$tipo == "hora")
+idx_datos_cop <- which(nomina$tipo == "datos_cop")
+idx_int       <- which(nomina$tipo == "datos_int")
+idx_nomina    <- which(nomina$seccion == "nomina")
+idx_datos     <- which(nomina$seccion == "datos")
+idx_cop       <- c(idx_dev, idx_sub_dev, idx_prest, idx_total, idx_hora, idx_datos_cop)
 
 # ── 2. Construir tabla gt ─────────────────────────────────────────────────────
 tabla <- nomina |>
-  select(-tipo) |>
+  select(-seccion, -tipo) |>
   gt() |>
 
-  # Título
-  tab_header(
-    title    = md("**N\u00f3mina**"),
-    subtitle = md("*Vendedor*")
-  ) |>
+  # ── Grupos de filas / secciones ─────────────────────────────────────────────
+  tab_row_group(label = "N\u00d3MINA VENDEDOR", rows = idx_nomina) |>
+  tab_row_group(label = "DATOS GENERALES",  rows = idx_datos)  |>
+  row_group_order(groups = c("N\u00d3MINA VENDEDOR", "DATOS GENERALES")) |>
 
-  # Etiquetas de columnas
-  cols_label(
-    Concepto = md("**Concepto**"),
-    Valor    = md("**Valor**")
-  ) |>
-
-  # Formato de moneda (con símbolo $, separador de miles, 2 decimales)
+  # ── Formato numérico ─────────────────────────────────────────────────────────
   fmt_currency(
     columns  = Valor,
-    currency = "COP",
+    rows     = idx_cop,
+    currency = "USD",   # símbolo $
     decimals = 2,
-    sep_mark = ",",
-    dec_mark = "."
+    sep_mark = ".",
+    dec_mark = ","
+  ) |>
+  fmt_integer(
+    columns  = Valor,
+    rows     = idx_int,
+    sep_mark = "."
   ) |>
 
-  # Alineación
+  # ── Alineación ──────────────────────────────────────────────────────────────
   cols_align(align = "left",  columns = Concepto) |>
   cols_align(align = "right", columns = Valor) |>
 
-  # Anchos
+  # ── Anchos ──────────────────────────────────────────────────────────────────
   cols_width(
-    Concepto ~ px(320),
-    Valor    ~ px(200)
+    Concepto ~ px(360),
+    Valor    ~ px(175)
   ) |>
 
-  # ── Encabezado de columnas ─────────────────────────────────────────────────
+  # ── Estilo: cabeceras de grupo ───────────────────────────────────────────────
   tab_style(
     style = list(
       cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(14))
+      cell_text(color = "white", weight = "bold", size = px(14),
+                align = "center", font = "Times New Roman")
     ),
-    locations = cells_column_labels()
+    locations = cells_row_groups()
   ) |>
 
   # ── Filas DEVENGADO (alternadas azul claro / blanco) ──────────────────────
@@ -119,15 +133,20 @@ tabla <- nomina |>
     locations = cells_body(rows = idx_dev[seq(2, length(idx_dev), by = 2)])
   ) |>
   tab_style(
-    style = cell_text(color = "#1B3A5C", weight = "bold"),
-    locations = cells_body(columns = Concepto, rows = idx_dev)
+    style = cell_text(color = "#1B3A5C", font = "Times New Roman", size = px(13)),
+    locations = cells_body(rows = idx_dev)
+  ) |>
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#D0D9E8", weight = px(1)),
+    locations = cells_body(rows = idx_dev)
   ) |>
 
   # ── Fila SUBTOTAL DEVENGADO ────────────────────────────────────────────────
   tab_style(
     style = list(
       cell_fill(color = "#2E6DA4"),
-      cell_text(color = "white", weight = "bold", size = px(13))
+      cell_text(color = "white", weight = "bold", size = px(13),
+                font = "Times New Roman", style = "italic")
     ),
     locations = cells_body(rows = idx_sub_dev)
   ) |>
@@ -136,7 +155,7 @@ tabla <- nomina |>
     locations = cells_body(rows = idx_sub_dev)
   ) |>
 
-  # ── Filas PRESTACIONES (alternadas verde muy claro / blanco) ───────────────
+  # ── Filas PRESTACIONES (alternadas verde claro / blanco) ───────────────────
   tab_style(
     style = cell_fill(color = "#EBF5EB"),
     locations = cells_body(rows = idx_prest[seq(1, length(idx_prest), by = 2)])
@@ -146,88 +165,88 @@ tabla <- nomina |>
     locations = cells_body(rows = idx_prest[seq(2, length(idx_prest), by = 2)])
   ) |>
   tab_style(
-    style = cell_text(color = "#1A5C38", weight = "bold"),
-    locations = cells_body(columns = Concepto, rows = idx_prest)
-  ) |>
-  tab_style(
-    style = cell_borders(sides = "bottom", color = "#B0C4DE", weight = px(1)),
+    style = cell_text(color = "#1A5C38", font = "Times New Roman", size = px(13)),
     locations = cells_body(rows = idx_prest)
   ) |>
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#C8DFC8", weight = px(1)),
+    locations = cells_body(rows = idx_prest)
+  ) |>
+  tab_style(
+    style = cell_borders(sides = "top", color = "#1B3A5C", weight = px(2)),
+    locations = cells_body(rows = idx_prest[1])
+  ) |>
 
-  # ── Fila TOTAL ─────────────────────────────────────────────────────────────
+  # ── Fila TOTAL COSTO MENSUAL (fondo amarillo) ──────────────────────────────
   tab_style(
     style = list(
-      cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(15))
+      cell_fill(color = "#F5A623"),
+      cell_text(color = "#1B3A5C", weight = "bold", size = px(13),
+                font = "Times New Roman")
     ),
     locations = cells_body(rows = idx_total)
   ) |>
   tab_style(
-    style = cell_borders(sides = c("top", "bottom"), color = "#7EC8E3", weight = px(2)),
+    style = cell_borders(sides = c("top", "bottom"), color = "#C47D00", weight = px(2)),
     locations = cells_body(rows = idx_total)
   ) |>
 
   # ── Fila VALOR DE LA HORA ─────────────────────────────────────────────────
   tab_style(
     style = list(
-      cell_fill(color = "#0D2B45"),
-      cell_text(color = "white", weight = "bold", size = px(14))
+      cell_fill(color = "#FFFFFF"),
+      cell_text(color = "#1B3A5C", size = px(13), font = "Times New Roman")
     ),
     locations = cells_body(rows = idx_hora)
   ) |>
   tab_style(
-    style = cell_borders(sides = "top", color = "#7EC8E3", weight = px(1)),
+    style = cell_borders(sides = "bottom", color = "#1B3A5C", weight = px(2)),
     locations = cells_body(rows = idx_hora)
   ) |>
 
-  # ── Separador visual entre devengado y prestaciones ───────────────────────
+  # ── Sección DATOS GENERALES (alternadas + valores en azul) ────────────────
   tab_style(
-    style = cell_borders(sides = "top", color = "#1B3A5C", weight = px(2)),
-    locations = cells_body(rows = idx_prest[1])
-  ) |>
-
-  # ── Fuente general ─────────────────────────────────────────────────────────
-  tab_style(
-    style = cell_text(size = px(14), font = "Times New Roman"),
-    locations = cells_body()
+    style = cell_fill(color = "#EAF1FB"),
+    locations = cells_body(rows = idx_datos[seq(1, length(idx_datos), by = 2)])
   ) |>
   tab_style(
-    style = cell_text(font = "Times New Roman"),
-    locations = cells_column_labels()
+    style = cell_fill(color = "#FFFFFF"),
+    locations = cells_body(rows = idx_datos[seq(2, length(idx_datos), by = 2)])
   ) |>
   tab_style(
-    style = cell_text(font = "Times New Roman"),
-    locations = cells_title()
-  ) |>
-
-  # ── Nota al pie ────────────────────────────────────────────────────────────
-  tab_source_note(
-    source_note = md(
-      "*Fuente: Liquidaci\u00f3n n\u00f3mina interna \u2014 Vendedor \u00b7 Salario m\u00ednimo legal vigente + prestaciones sociales*"
-    )
+    style = cell_text(color = "#1B3A5C", font = "Times New Roman", size = px(13)),
+    locations = cells_body(columns = Concepto, rows = idx_datos)
   ) |>
   tab_style(
-    style = cell_borders(sides = "top", color = "#B0C4DE", weight = px(1)),
-    locations = cells_source_notes()
+    style = cell_text(color = "#1B3A5C", font = "Times New Roman", size = px(13)),
+    locations = cells_body(columns = Valor, rows = idx_datos_cop)
+  ) |>
+  tab_style(
+    style = cell_text(color = "#1B3A5C", weight = "bold", font = "Times New Roman", size = px(13)),
+    locations = cells_body(columns = Valor, rows = idx_int)
+  ) |>
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#D0D9E8", weight = px(1)),
+    locations = cells_body(rows = idx_datos)
   ) |>
 
   # ── Opciones generales ─────────────────────────────────────────────────────
   tab_options(
-    table.width                    = px(540),
+    table.width                    = px(545),
     table.border.top.color         = "#1B3A5C",
     table.border.top.width         = px(3),
     table.border.bottom.color      = "#1B3A5C",
     table.border.bottom.width      = px(2),
-    heading.background.color       = "#F0F4FA",
-    heading.border.bottom.color    = "#1B3A5C",
-    heading.border.bottom.width    = px(2),
-    column_labels.border.top.color = "#1B3A5C",
-    column_labels.border.top.width = px(2),
-    data_row.padding               = px(9),
-    source_notes.font.size         = px(12)
+    column_labels.hidden           = TRUE,
+    row_group.border.top.color     = "#1B3A5C",
+    row_group.border.top.width     = px(2),
+    row_group.border.bottom.color  = "#1B3A5C",
+    row_group.border.bottom.width  = px(1),
+    row_group.padding              = px(6),
+    data_row.padding               = px(8)
   )
 
-# ── 3. Mostrar y exportar ────────────────────────────────────────────────────
+# ── 3. Mostrar y exportar ─────────────────────────────────────────────────────
 tabla
 
 gtsave(tabla, "tabla_nomina_vendedor.html")
