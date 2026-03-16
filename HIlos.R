@@ -15,17 +15,17 @@ library(patchwork)
 Sys.setlocale("LC_ALL", "C.UTF-8")
 
 # ── PALETA VERDE Y TEMA ─────────────────────────────────────────────
-verde_1 <- "#0B3D2E"
-verde_2 <- "#14694E"
-verde_3 <- "#1E9E6B"
-verde_4 <- "#4EC98B"
-verde_5 <- "#A8E6C3"
-verde_6 <- "#D4F5E2"
-acento   <- "#FF6B35"
-gris_f  <- "#F2F7F4"
-gris_t  <- "#1C2E26"
-gris_l  <- "#7A9488"
+
 blanco  <- "#FFFFFF"
+verde_1  <- "#0D2B55"
+verde_2  <- "#1B5E8A"
+verde_3  <- "#4A90C4"
+verde_4  <- "#7BB8D8"
+verde_6  <- "#BDE0F0"
+gris_f  <- "#F4F7FA"
+gris_t  <- "#2C3E50"
+gris_l  <- "#8FA0AE"
+
 
 tema_eh <- theme_minimal(base_family = "sans") +
   theme(

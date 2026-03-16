@@ -38,7 +38,8 @@ corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 
 # ── 3. Filtrar solo los 4 corregimientos pedidos ─────────────────────────────
-seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
+seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo","El Salado",
+               "El Queremal")
 
 corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
 

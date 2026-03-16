@@ -28,10 +28,10 @@ driver2 <- data.frame(
     "$1,893,969",
     "$1,000,000",
     "$2,893,969",
-    "4.3 km",
+    "4.4 km",
     "2x",
-    "1,704 km/mes",
-    "$1,698/km"
+    "2.127 km/mes",
+    "$1,360/km"
   ),
   Clasificacion = c(
     "Costo Variable",
