@@ -90,7 +90,7 @@ popup_v <- paste0(
   "<div style='font-size:16px;font-weight:700;color:#1f4e79;border-bottom:2px solid #e0e0e0;",
   "padding-bottom:5px;margin-bottom:8px;'>", corr_datos$Nombre, "</div>",
   "<div style='color:#27ae60;font-size:15px;'><b>Ventas: ",
-  format(corr_datos$Ventas, big.mark = ".", decimal.mark = ",", scientific = FALSE),
+  prettyNum(corr_datos$Ventas, big.mark = ".", small.mark = "", scientific = FALSE),
   "</b></div>",
   "</div>"
 )
@@ -100,7 +100,7 @@ popup_t <- paste0(
   "<div style='font-size:16px;font-weight:700;color:#1f4e79;border-bottom:2px solid #e0e0e0;",
   "padding-bottom:5px;margin-bottom:8px;'>", corr_datos$Nombre, "</div>",
   "<div style='color:#2980b9;font-size:15px;'><b>Gasto transporte: ",
-  format(corr_datos$GastoTransporte, big.mark = ".", decimal.mark = ",", scientific = FALSE),
+  prettyNum(corr_datos$GastoTransporte, big.mark = ".", small.mark = "", scientific = FALSE),
   "</b></div>",
   "</div>"
 )
@@ -195,10 +195,7 @@ mapa <- leaflet() %>%
     pal      = pal_v,
     values   = corr_datos$Ventas,
     title    = HTML("<b style='color:#27ae60;'>&#x25B2; Ventas ($)</b>"),
-    labFormat = labelFormat(
-      prefix   = "$",
-      transform = function(x) formatC(x, format = "f", big.mark = ".", digits = 0)
-    ),
+    labFormat = labelFormat(prefix = "$", big.mark = ","),
     opacity = 0.9
   ) %>%
 
@@ -208,10 +205,7 @@ mapa <- leaflet() %>%
     pal      = pal_t,
     values   = corr_datos$GastoTransporte,
     title    = HTML("<b style='color:#2980b9;'>&#x1F69A; Gasto transporte ($)</b>"),
-    labFormat = labelFormat(
-      prefix   = "$",
-      transform = function(x) formatC(x, format = "f", big.mark = ".", digits = 0)
-    ),
+    labFormat = labelFormat(prefix = "$", big.mark = ","),
     opacity = 0.9
   ) %>%
 
