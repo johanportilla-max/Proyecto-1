@@ -38,7 +38,8 @@ corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 
 # ── 3. Filtrar solo los 4 corregimientos pedidos ─────────────────────────────
-seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
+seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo",
+               "El Salado", "El Queremal")
 
 corr_sel  <- corr_utm |> filter(Nombre %in% seleccion)
 
@@ -80,7 +81,9 @@ paleta_sel <- c(
   "El Carmen"      = "#1A6B72",   # teal oscuro
   "El Limonar"     = "#2E9EA8",   # cian medio
   "El Palmar"      = "#5B7FA6",   # azul grisáceo
-  "San Bernardo"   = "#7B5EA7"    # violeta frío
+  "San Bernardo"   = "#7B5EA7",   # violeta frío
+  "El Salado"      = "#B85C38",   # terracota / óxido
+  "El Queremal"    = "#2D7D4A"    # verde bosque
 )
 
 # Paleta para el fondo de las etiquetas de domicilios
@@ -90,6 +93,8 @@ paleta_etiq <- c(
   "El Limonar"     = "#2E9EA8",
   "El Palmar"      = "#5B7FA6",
   "San Bernardo"   = "#7B5EA7",
+  "El Salado"      = "#B85C38",
+  "El Queremal"    = "#2D7D4A",
   "Otro"           = "#7A8FA6"
 )
 
@@ -225,7 +230,7 @@ mapa <- ggplot() +
 
   labs(
     title    = "Municipio de Dagua — Ubicaciones de Envío",
-    subtitle = "Corregimientos: Borrero Ayerbe · El Carmen · El Limonar · El Palmar · San Bernardo",
+    subtitle = "Corregimientos: Borrero Ayerbe · El Carmen · El Limonar · El Palmar · San Bernardo · El Salado · El Queremal",
     caption  = "Valle del Cauca, Colombia  ·  Puntos amarillos: envíos registrados  ·  Diamante rojo: empresa Triple AAA"
   ) +
 
