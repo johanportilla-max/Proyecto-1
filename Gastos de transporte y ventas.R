@@ -1,12 +1,9 @@
 # ====================================================
-# MAPA DE CORREGIMIENTOS DE DAGUA: VENTAS Y GASTO DE TRANSPORTE
-# ====================================================
-# ====================================================
-# MAPA DE CORREGIMIENTOS CON VENTAS > 0
-# Etiquetas permanentes con Ventas y Gasto de Transporte
+# MAPA DE CORREGIMIENTOS DE DAGUA
+# Ventas y Gasto de Transporte — datos reales del Excel
 # ====================================================
 
-# 1. Librerías ------------------------------------------------------------
+# 1. Librerías --------------------------------------------------------
 library(sf)
 library(leaflet)
 library(dplyr)
@@ -15,236 +12,215 @@ library(readr)
 library(htmlwidgets)
 library(htmltools)
 
-# 2. Cargar capa geográfica ------------------------------------------------
-corregimientos <- st_read("Corregimientos.gpkg")
+# Función: formato en millones (ej. $30.6M) o miles (ej. $425K)
+fmt_cop <- function(x) {
+  dplyr::case_when(
+    x == 0          ~ "$0",
+    x >= 1e6        ~ paste0("$", formatC(x / 1e6, format = "f", digits = 1), "M"),
+    x >= 1e3        ~ paste0("$", formatC(x / 1e3, format = "f", digits = 0), "K"),
+    TRUE            ~ paste0("$", formatC(x, format = "f", digits = 0))
+  )
+}
 
-# 3. Leer hojas del Excel --------------------------------------------------
-listas <- read_excel("ventas.xlsx", sheet = "Listas")
-db     <- read_excel("ventas.xlsx", sheet = "Base de datos")
+# 2. Capa geográfica --------------------------------------------------
+corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) %>%
+  mutate(Nombre = case_when(
+    Nombre == "Zelandio"      ~ "Zelandia",
+    Nombre == "Jiguiales"     ~ "Jiguales",
+    Nombre == "San Bernando"  ~ "San Bernardo",
+    Nombre == "Borreo Ayerbe" ~ "Borrero Ayerbe",
+    TRUE                       ~ Nombre
+  ))
 
-# 4. Limpiar nombres de columnas -------------------------------------------
-names(listas) <- make.names(names(listas))
-names(db)     <- make.names(names(db))
+# 3. Leer Base de datos del Excel -------------------------------------
+db <- read_excel("ventas.xlsx", sheet = "Base de datos")
+names(db) <- make.names(names(db))
 
-# 5. Limpiar y convertir valores numéricos en db ---------------------------
+# 4. Limpiar valores y corregir nombres de corregimiento --------------
 db_clean <- db %>%
   mutate(
-    transporte = parse_number(as.character(VLR..TRANSPORTE), 
-                              locale = locale(decimal_mark = ",", grouping_mark = ".")),
-    total_fact = parse_number(as.character(VLR..TOTAL.FACT.), 
-                              locale = locale(decimal_mark = ",", grouping_mark = ".")),
-    productos  = parse_number(as.character(VLR..PRODUCTOS), 
-                              locale = locale(decimal_mark = ",", grouping_mark = ".")),
-    ID = as.integer(ID)
-  ) %>%
-  filter(!is.na(ID))
-
-# 6. Unir con listas para obtener el nombre del corregimiento -------------
-listas_clean <- listas %>%
-  mutate(
-    ID = as.integer(ID),
+    # "Villahermosa" en el Excel → "Villa Hermosa" en el gpkg
     Corregimiento = case_when(
-      Corregimiento == "Zelandio"     ~ "Zelandia",
-      Corregimiento == "Jiguiales"    ~ "Jiguales",
-      Corregimiento == "San Bernando" ~ "San Bernardo",
-      Corregimiento == "Borreo Ayerbe" ~ "Borrero Ayerbe",
+      Corregimiento == "Villahermosa" ~ "Villa Hermosa",
       TRUE ~ Corregimiento
-    )
-  )
+    ),
+    transporte = parse_number(as.character(VLR..TRANSPORTE),
+                              locale = locale(decimal_mark = ",", grouping_mark = ".")),
+    ventas     = parse_number(as.character(VLR..PRODUCTOS),
+                              locale = locale(decimal_mark = ",", grouping_mark = "."))
+  ) %>%
+  filter(!is.na(Corregimiento), Corregimiento != "NA")
 
-
-# 7. Agrupar por corregimiento para obtener totales ------------------------
-ventas_por_correg <- db_clean%>%
+# 5. Totales por corregimiento ----------------------------------------
+ventas_por_correg <- db_clean %>%
   group_by(Corregimiento) %>%
   summarise(
-    Ventas          = sum(productos, na.rm = TRUE),
+    Ventas          = sum(ventas,     na.rm = TRUE),
     GastoTransporte = sum(transporte, na.rm = TRUE),
     .groups = "drop"
   )
 
-# 8. Unir con la capa de corregimientos ------------------------------------
-corregimientos <- corregimientos %>%
-  mutate(Nombre = case_when(
-    Nombre == "Zelandio"     ~ "Zelandia",
-    Nombre == "Jiguiales"    ~ "Jiguales",
-    Nombre == "San Bernando" ~ "San Bernardo",
-    Nombre == "Borreo Ayerbe" ~ "Borrero Ayerbe",
-    TRUE                      ~ Nombre
-  ))
-
-corregimientos_con_datos <- corregimientos %>%
+# 6. Unir datos espaciales con datos de ventas ------------------------
+corr_datos <- corregimientos %>%
   left_join(ventas_por_correg, by = c("Nombre" = "Corregimiento")) %>%
   mutate(
-    Ventas          = ifelse(is.na(Ventas), 0, Ventas),
+    Ventas          = ifelse(is.na(Ventas),          0, Ventas),
     GastoTransporte = ifelse(is.na(GastoTransporte), 0, GastoTransporte)
-  )
-
-# 9. FILTRAR: conservar solo corregimientos con Ventas > 0 -----------------
-corregimientos_con_datos <- corregimientos_con_datos %>%
+  ) %>%
   filter(Ventas > 0)
 
-# Si después del filtro no queda ningún registro, mostrar advertencia
-if (nrow(corregimientos_con_datos) == 0) {
-  stop("No hay corregimientos con ventas mayores a cero. Revisa tus datos.")
-}
+if (nrow(corr_datos) == 0) stop("Sin corregimientos con ventas > 0. Revisa los datos.")
 
-# 10. Transformar a WGS84 y reparar geometrías -----------------------------
-if (st_crs(corregimientos_con_datos) != st_crs(4326)) {
-  corregimientos_con_datos <- st_transform(corregimientos_con_datos, 4326)
-}
-corregimientos_con_datos <- st_make_valid(corregimientos_con_datos)
+# 7. Transformar a WGS84 y reparar geometrías -------------------------
+corr_datos <- st_transform(corr_datos, 4326) %>% st_make_valid()
 
-# Verificar si aún hay geometrías inválidas
-if (any(!st_is_valid(corregimientos_con_datos))) {
-  warning("Aún hay geometrías inválidas. Se aplicará buffer 0.")
-  corregimientos_con_datos <- st_buffer(corregimientos_con_datos, dist = 0)
-}
+# 8. Puntos internos para etiquetas -----------------------------------
+pts    <- st_point_on_surface(corr_datos)
+coords <- st_coordinates(pts)
+corr_datos <- corr_datos %>%
+  mutate(lng = coords[, 1], lat = coords[, 2])
 
-# 11. Calcular puntos sobre la superficie ----------------------------------
-puntos_superficie <- st_point_on_surface(corregimientos_con_datos)
-coords <- st_coordinates(puntos_superficie)
-puntos_superficie <- puntos_superficie %>%
-  mutate(lng = coords[,1], lat = coords[,2])
+# 9. Paletas de color -------------------------------------------------
+pal_v <- colorNumeric("YlOrRd", domain = corr_datos$Ventas,          na.color = "#808080")
+pal_t <- colorNumeric("Blues",  domain = corr_datos$GastoTransporte, na.color = "#808080")
 
-# 12. Crear paletas de colores continuas -----------------------------------
-# (ya no es necesario el caso de todos 0 porque filtramos Ventas > 0, 
-#  pero por si acaso lo mantenemos)
-if (all(corregimientos_con_datos$Ventas == 0)) {
-  pal_ventas <- colorNumeric(palette = "YlOrRd", domain = c(0,1), na.color = "#808080")
-} else {
-  pal_ventas <- colorNumeric(palette = "YlOrRd", domain = corregimientos_con_datos$Ventas, na.color = "#808080")
-}
-
-if (all(corregimientos_con_datos$GastoTransporte == 0)) {
-  pal_gasto <- colorNumeric(palette = "Blues", domain = c(0,1), na.color = "#808080")
-} else {
-  pal_gasto <- colorNumeric(palette = "Blues", domain = corregimientos_con_datos$GastoTransporte, na.color = "#808080")
-}
-
-# 13. Preparar popups ------------------------------------------------------
-popup_ventas <- paste0(
-  "<div style='font-family: Segoe UI, Arial; font-size: 14px; padding: 8px;'>",
-  "<b style='color: #1f4e79;'>", corregimientos_con_datos$Nombre, "</b><br>",
-  "<b>Ventas (productos):</b> $", format(corregimientos_con_datos$Ventas, big.mark = ",", scientific = FALSE), "<br>",
+# 10. Popups detallados (clic) ----------------------------------------
+popup_v <- paste0(
+  "<div style='font-family:Segoe UI,Arial;font-size:14px;padding:10px 14px;min-width:190px;'>",
+  "<div style='font-size:16px;font-weight:700;color:#1f4e79;border-bottom:2px solid #e0e0e0;",
+  "padding-bottom:5px;margin-bottom:8px;'>", corr_datos$Nombre, "</div>",
+  "<div style='color:#27ae60;font-size:15px;'><b>Ventas: ",
+  format(corr_datos$Ventas, big.mark = ".", decimal.mark = ",", scientific = FALSE),
+  "</b></div>",
   "</div>"
 )
 
-popup_gasto <- paste0(
-  "<div style='font-family: Segoe UI, Arial; font-size: 14px; padding: 8px;'>",
-  "<b style='color: #1f4e79;'>", corregimientos_con_datos$Nombre, "</b><br>",
-  "<b>Gasto transporte:</b> $", format(corregimientos_con_datos$GastoTransporte, big.mark = ",", scientific = FALSE), "<br>",
+popup_t <- paste0(
+  "<div style='font-family:Segoe UI,Arial;font-size:14px;padding:10px 14px;min-width:190px;'>",
+  "<div style='font-size:16px;font-weight:700;color:#1f4e79;border-bottom:2px solid #e0e0e0;",
+  "padding-bottom:5px;margin-bottom:8px;'>", corr_datos$Nombre, "</div>",
+  "<div style='color:#2980b9;font-size:15px;'><b>Gasto transporte: ",
+  format(corr_datos$GastoTransporte, big.mark = ".", decimal.mark = ",", scientific = FALSE),
+  "</b></div>",
   "</div>"
 )
 
-# 14. Etiquetas permanentes ------------------------------------------------
-etiquetas_texto <- paste0(
-  "<div style='font-family: Segoe UI, Arial; font-size: 11px; font-weight: bold; ",
-  "background-color: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 4px; ",
-  "border: 1px solid #333; box-shadow: 0 2px 4px rgba(0,0,0,0.3);'>",
-  puntos_superficie$Nombre, "<br>",
-  "V: $", format(puntos_superficie$Ventas, big.mark = ",", scientific = FALSE), "<br>",
-  "T: $", format(puntos_superficie$GastoTransporte, big.mark = ",", scientific = FALSE),
-  "</div>"
-)
+# 11. Etiquetas permanentes por corregimiento -------------------------
+etiquetas <- lapply(seq_len(nrow(corr_datos)), function(i) {
+  nom <- corr_datos$Nombre[i]
+  v   <- fmt_cop(corr_datos$Ventas[i])
+  t   <- fmt_cop(corr_datos$GastoTransporte[i])
 
-etiquetas_opciones <- labelOptions(
-  noHide = TRUE,
-  direction = "center",
-  textOnly = FALSE,
-  style = NULL,
-  offset = c(0, 0)
-)
+  HTML(paste0(
+    "<div style='",
+      "font-family: Segoe UI, Arial, sans-serif;",
+      "text-align: center;",
+      "background: rgba(255,255,255,0.93);",
+      "border: 1px solid #bbb;",
+      "border-radius: 6px;",
+      "padding: 4px 8px;",
+      "box-shadow: 0 2px 6px rgba(0,0,0,0.18);",
+      "line-height: 1.5;",
+      "white-space: nowrap;",
+    "'>",
+    "<div style='font-size:12px;font-weight:700;color:#1f4e79;'>", nom, "</div>",
+    "<div style='font-size:11px;'>",
+      "<span style='color:#27ae60;font-weight:600;'>&#x25B2; ", v, "</span>",
+      "&nbsp;&nbsp;",
+      "<span style='color:#2980b9;font-weight:600;'>&#x1F69A; ", t, "</span>",
+    "</div>",
+    "</div>"
+  ))
+})
 
-# 15. Construir el mapa ----------------------------------------------------
+# 12. Construir mapa --------------------------------------------------
 mapa <- leaflet() %>%
-  
-  addProviderTiles(providers$CartoDB.Positron, group = "Claro") %>%
+
+  addProviderTiles(providers$CartoDB.Positron,   group = "Claro") %>%
   addProviderTiles(providers$CartoDB.DarkMatter, group = "Oscuro") %>%
-  
-  # Capa de Ventas
+
+  # — Capa Ventas
   addPolygons(
-    data = corregimientos_con_datos,
-    fillColor = ~pal_ventas(Ventas),
-    fillOpacity = 0.7,
-    color = "#FFFFFF",
-    weight = 1.2,
-    opacity = 1,
-    smoothFactor = 0.3,
+    data        = corr_datos,
+    fillColor   = ~pal_v(Ventas),
+    fillOpacity = 0.72,
+    color = "#FFFFFF", weight = 1.5, opacity = 1, smoothFactor = 0.3,
     highlightOptions = highlightOptions(
-      weight = 3,
-      color = "#FFD700",
-      fillOpacity = 0.9,
-      bringToFront = TRUE
+      weight = 3, color = "#FFD700", fillOpacity = 0.9, bringToFront = TRUE
     ),
-    label = ~paste(Nombre, "- Ventas: $", format(Ventas, big.mark = ",")),
-    popup = popup_ventas,
+    label = ~paste0(Nombre, "  |  Ventas: ", fmt_cop(Ventas)),
+    popup = popup_v,
     group = "Ventas"
   ) %>%
-  
-  # Capa de Gasto Transporte
+
+  # — Capa Gasto Transporte
   addPolygons(
-    data = corregimientos_con_datos,
-    fillColor = ~pal_gasto(GastoTransporte),
-    fillOpacity = 0.7,
-    color = "#FFFFFF",
-    weight = 1.2,
-    opacity = 1,
-    smoothFactor = 0.3,
+    data        = corr_datos,
+    fillColor   = ~pal_t(GastoTransporte),
+    fillOpacity = 0.72,
+    color = "#FFFFFF", weight = 1.5, opacity = 1, smoothFactor = 0.3,
     highlightOptions = highlightOptions(
-      weight = 3,
-      color = "#FFD700",
-      fillOpacity = 0.9,
-      bringToFront = TRUE
+      weight = 3, color = "#FFD700", fillOpacity = 0.9, bringToFront = TRUE
     ),
-    label = ~paste(Nombre, "- Gasto: $", format(GastoTransporte, big.mark = ",")),
-    popup = popup_gasto,
+    label = ~paste0(Nombre, "  |  Transporte: ", fmt_cop(GastoTransporte)),
+    popup = popup_t,
     group = "Gasto Transporte"
   ) %>%
-  
-  # Etiquetas permanentes
+
+  # — Etiquetas permanentes (una por corregimiento)
   addLabelOnlyMarkers(
-    data = puntos_superficie,
-    lng = ~lng,
-    lat = ~lat,
-    label = lapply(etiquetas_texto, HTML),
-    labelOptions = etiquetas_opciones,
+    data = corr_datos,
+    lng  = ~lng,
+    lat  = ~lat,
+    label        = etiquetas,
+    labelOptions = labelOptions(
+      noHide    = TRUE,
+      direction = "center",
+      textOnly  = TRUE,
+      offset    = c(0, 0)
+    ),
     group = "Etiquetas"
   ) %>%
-  
-  # Control de capas
+
+  # — Control de capas
   addLayersControl(
-    baseGroups = c("Claro", "Oscuro"),
+    baseGroups    = c("Claro", "Oscuro"),
     overlayGroups = c("Ventas", "Gasto Transporte", "Etiquetas"),
     options = layersControlOptions(collapsed = FALSE)
   ) %>%
-  
-  # Leyendas
+
+  # — Leyenda Ventas
   addLegend(
     position = "bottomright",
-    pal = pal_ventas,
-    values = corregimientos_con_datos$Ventas,
-    title = htmltools::HTML("<span style='font-weight:600;'>Ventas ($)</span>"),
-    opacity = 0.9,
-    group = "Ventas"
+    pal      = pal_v,
+    values   = corr_datos$Ventas,
+    title    = HTML("<b style='color:#27ae60;'>&#x25B2; Ventas ($)</b>"),
+    labFormat = labelFormat(
+      prefix   = "$",
+      transform = function(x) formatC(x, format = "f", big.mark = ".", digits = 0)
+    ),
+    opacity = 0.9
   ) %>%
+
+  # — Leyenda Transporte
   addLegend(
-    position = "bottomright",
-    pal = pal_gasto,
-    values = corregimientos_con_datos$GastoTransporte,
-    title = htmltools::HTML("<span style='font-weight:600;'>Gasto transporte ($)</span>"),
-    opacity = 0.9,
-    group = "Gasto Transporte"
+    position = "bottomleft",
+    pal      = pal_t,
+    values   = corr_datos$GastoTransporte,
+    title    = HTML("<b style='color:#2980b9;'>&#x1F69A; Gasto transporte ($)</b>"),
+    labFormat = labelFormat(
+      prefix   = "$",
+      transform = function(x) formatC(x, format = "f", big.mark = ".", digits = 0)
+    ),
+    opacity = 0.9
   ) %>%
-  
-  # Ajustar vista a los datos filtrados
+
   fitBounds(
-    lng1 = min(st_bbox(corregimientos_con_datos)[1], na.rm = TRUE),
-    lat1 = min(st_bbox(corregimientos_con_datos)[2], na.rm = TRUE),
-    lng2 = max(st_bbox(corregimientos_con_datos)[3], na.rm = TRUE),
-    lat2 = max(st_bbox(corregimientos_con_datos)[4], na.rm = TRUE)
+    lng1 = st_bbox(corr_datos)[1], lat1 = st_bbox(corr_datos)[2],
+    lng2 = st_bbox(corr_datos)[3], lat2 = st_bbox(corr_datos)[4]
   ) %>%
-  
+
   addScaleBar(position = "bottomleft", options = scaleBarOptions(imperial = FALSE))
 
-# 16. Visualizar
+# 13. Mostrar ---------------------------------------------------------
 mapa
