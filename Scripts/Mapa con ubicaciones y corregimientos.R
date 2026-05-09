@@ -24,7 +24,7 @@ corregimientos <- st_read("Corregimientos.gpkg", quiet = TRUE) |>
 
 domicilios <- st_read("Domicilios.shp", quiet = TRUE) |>
   st_make_valid() |>
-  st_transform(crs = 4326)
+  st_transform(crs = 4326) %>% filter(Nombre != c("Patrones"))
 
 # ── 2. Proyección UTM automática ─────────────────────────────────────────────
 bbox_total <- st_bbox(corregimientos)
@@ -38,19 +38,21 @@ corr_utm <- st_transform(corregimientos, crs = crs_utm)
 dom_utm  <- st_transform(domicilios,     crs = crs_utm)
 
 # ── 3. Corregimientos a graficar ─────────────────────────────────────────────
-seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", "El Palmar", "San Bernardo")
-
+seleccion <- c("Borrero Ayerbe", "El Carmen", "El Limonar", 
+               "El Palmar", "San Bernardo", "El Queremal","El Salado")
 corr_sel <- corr_utm |> filter(Nombre %in% seleccion)
 
-# ── 4. Detectar columna de nombre en domicilios ──────────────────────────────
-posibles <- c("Nombre", "nombre", "NOMBRE", "lugar", "sitio", "direccion", "titular")
-col_nom  <- intersect(posibles, names(dom_utm))[1]
-if (is.na(col_nom)) col_nom <- names(dom_utm)[1]
-
-# Spatial join: asignar a cada domicilio el corregimiento donde cae
 corr_para_join <- corr_sel |> select(corregimiento = Nombre)
-dom_utm        <- st_join(dom_utm, corr_para_join, left = TRUE)
 
+# Encontrar índices de intersección entre cada punto y los polígonos
+int <- st_intersects(dom_utm, corr_para_join)
+
+# Asignar el nombre del primer corregimiento que intersecta (o NA si no hay)
+dom_utm$corregimiento <- sapply(int, function(i) {
+  if (length(i) > 0) corr_para_join$corregimiento[i[1]] else NA_character_
+})
+
+# Ahora crear la tabla con coordenadas y etiquetas
 dom_todos <- dom_utm |>
   mutate(
     x             = st_coordinates(geometry)[, 1],
@@ -59,7 +61,6 @@ dom_todos <- dom_utm |>
     corregimiento = if_else(is.na(corregimiento), "Otro", corregimiento)
   ) |>
   st_drop_geometry()
-
 # ── 4b. Punto especial: empresa Triple AAA ───────────────────────────────────
 # Coordenadas reales: lon = -76.6478, lat = 3.572946 (Domicilios.shp, id = 32)
 aaa_sf    <- st_as_sf(data.frame(lon = -76.6478, lat = 3.572946),
@@ -79,7 +80,9 @@ paleta <- c(
   "El Carmen"      = "#1A6B72",
   "El Limonar"     = "#2E9EA8",
   "El Palmar"      = "#5B7FA6",
-  "San Bernardo"   = "#7B5EA7"
+  "San Bernardo"   = "#7B5EA7",
+  "El Queremal"    = "#9C4F7F",
+  "El Salado"      = "#8B5A2B" 
 )
 
 # ── 6. Función para generar un mapa por corregimiento ────────────────────────
@@ -249,3 +252,4 @@ for (corr in seleccion) {
 }
 
 message("Listo. Se generaron ", length(seleccion), " mapas PNG.")
+

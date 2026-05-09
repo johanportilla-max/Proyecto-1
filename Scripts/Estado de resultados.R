@@ -1,158 +1,176 @@
-# Tabla profesional - Estado de Resultados
+# ============================================================
+# TABLA – PUNTOS DE ENTREGA: NOMBRE / ENVÍOS / DISTANCIA
 # Requiere: install.packages(c("gt", "dplyr"))
+# ============================================================
 
 library(gt)
 library(dplyr)
 
-# ── Datos ─────────────────────────────────────────────────────────────────────
-estado_resultados <- data.frame(
-  Concepto = c(
-    "Ingresos operacionales",
-    "(-) Costos de ventas: MP MOD CIF",
-    "Utilidad Bruta",
-    "(-) Depreciación y amortización",
-    "(-) Gastos administrativos",
-    "(-) Gastos de venta",
-    "Utilidad operacional (EBIT)",
-    "(+) Ingresos no operacionales",
-    "(-) Gastos financieros",
-    "(-) Gastos no declarados",
-    "Utilidad antes de impuestos (EBT)",
-    "(-) Impuesto de renta",
-    "Utilidad Neta"
+# ── 1. Datos ─────────────────────────────────────────────────────────────────
+puntos <- data.frame(
+  tipo = c(rep("data", 63), "promedio"),
+  Nombre = c(
+    "El Coscorron", "Altos del Carmen", "Pirineos", "KM 34",
+    "San Jose del Salado", "San Miguel", "Tortolas", "Casa verde",
+    "El Carmelo", "El diviso", "Los bomberos", "Villa del toro",
+    "Carmen", "El parque", "La Zulia 2", "Las villas del carmen",
+    "Monteredondo", "Palo alto", "Parcelacion la Cristalina",
+    "Parcelaon las palmas", "Tocota", "Salida al carmen", "La florida",
+    "Agua Sucia", "Altos de las Tortolas", "El limonar", "El Queremal",
+    "KM 26", "KM 28", "La clorinda", "La Zulia 3",
+    "Parcelaci\u00f3n El bosque",
+    "Bahondo", "Chipre", "El palmar", "KM 24", "KM 27",
+    "La bomba", "La Zulia 1", "San Fernando", "Tierras blancas",
+    "Villa saman", "Saliendo del carmen",
+    "Azul y verde", "Cositas ricas", "KM 25", "KM 40",
+    "La recta", "Mirador Bellavista", "Parcelaci\u00f3n Monterico",
+    "El chilcal", "Panamericano", "Villahermosa",
+    "KM 37", "Pa la chingada", "Parcelaci\u00f3n Ambichinte",
+    "La caba\u00f1a", "Villa emilia", "El chiringuito", "Las playas",
+    "Campamento Salomon", "Finca la cristalina", "MK 26",
+    NA   # fila promedio
   ),
-  Valor = c(
-    "$ 650,000,000.00",
-    "$ 540,864,903.00",
-    "$ 109,135,097.00",
-    "",
-    "$  24,303,000.00",
-    "$  64,872,000.00",
-    "$  19,960,097.00",
-    "",
-    "$   5,920,000.00",
-    "$   3,593,000.00",
-    "$  17,633,097.00",
-    "$   6,171,583.95",
-    "$  11,461,513.05"
+  Num_envios = c(
+    11, 9, 9, 8,
+    7, 7, 7, 7,
+    6, 6, 6, 6,
+    5, 5, 5, 5,
+    5, 5, 5, 5, 5, 5, 5,
+    4, 4, 4, 4, 4, 4, 4, 4, 4,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0,
+    NA   # fila promedio
+  ),
+  Distancia = c(
+    2.65,       5.464,     2.66665,   4.316,
+    13.07,      2.269,     5.757,     4.626,
+    6.124,      8.471,     2.092,     2.279762,
+    4.201,      0.836,     1.248,     3.507,
+    0.428,      4.476,     2.71,      2.641,     9.438,  2.329,  1.466927,
+    1.343,      6.724,     4.713,    18.542,     5.378,  3.943014, 5.264, 1.087, 4.800039,
+    5.6,        4.781,     4.93,      6.973,     4.583943, 1.321207, 0.944, 7.603318, 0.449, 2.059, 4.734,
+    2.31,       0.723,     6.46658,   9.607613,  0.935,  1.201,  9.826848, 14.314, 1.127, 6.788,
+    6.606969,   1.31,      3.684,     2.091,     3.449,  1.544,  2.129,
+    3.467,      6.071,     5.378,
+    4.41060111  # promedio
   ),
   stringsAsFactors = FALSE
 )
 
-# Índices de filas especiales
-filas_subtotal <- c(3, 7, 11, 13)   # Utilidades
-fila_neta      <- 13                 # Utilidad Neta (borde superior)
-filas_normales <- setdiff(1:13, filas_subtotal)
+idx_data <- which(puntos$tipo == "data")
+idx_prom <- which(puntos$tipo == "promedio")
 
-# ── Tabla con gt ──────────────────────────────────────────────────────────────
-tabla <- estado_resultados |>
+# ── 2. Tabla gt ───────────────────────────────────────────────────────────────
+tabla <- puntos |>
+  select(-tipo) |>
   gt() |>
   
-  # Encabezado
-  tab_header(
-    title    = md("**Estado de Resultados**"),
-    subtitle = md("*Período contable*")
-  ) |>
-  
-  # Etiquetas de columnas
   cols_label(
-    Concepto = md("**Concepto**"),
-    Valor    = md("**Valor**")
+    Nombre     = md("**Nombre**"),
+    Num_envios = md("**Numero de envios**"),
+    Distancia  = md("**Distancia**")
   ) |>
   
-  # Alineación
-  cols_align(align = "left",  columns = Concepto) |>
-  cols_align(align = "right", columns = Valor) |>
+  # Enteros para envíos (sólo filas data)
+  fmt_integer(
+    columns  = Num_envios,
+    rows     = idx_data,
+    sep_mark = "."
+  ) |>
   
-  # Anchos de columna
+  # Distancia: decimales variables sin trailing zeros
+  fmt_number(
+    columns            = Distancia,
+    decimals           = 7,
+    drop_trailing_zeros = TRUE,
+    dec_mark           = ",",
+    sep_mark           = "."
+  ) |>
+  
+  # Celdas vacías en la fila de promedio
+  sub_missing(
+    columns      = c(Nombre, Num_envios),
+    rows         = idx_prom,
+    missing_text = ""
+  ) |>
+  
+  # ── Alineación ──────────────────────────────────────────────────────────────
+  cols_align(align = "left",   columns = Nombre) |>
+  cols_align(align = "center", columns = Num_envios) |>
+  cols_align(align = "right",  columns = Distancia) |>
+  
+  # ── Anchos ──────────────────────────────────────────────────────────────────
   cols_width(
-    Concepto ~ px(400),
-    Valor    ~ px(200)
+    Nombre     ~ px(250),
+    Num_envios ~ px(145),
+    Distancia  ~ px(115)
   ) |>
   
-  # ── Estilo del encabezado de columnas ──
+  # ── Encabezados de columna ──────────────────────────────────────────────────
   tab_style(
     style = list(
       cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(15))
+      cell_text(color = "white", weight = "bold", size = px(13),
+                font = "Times New Roman")
     ),
     locations = cells_column_labels()
   ) |>
   
-  # ── Filas normales: alternado azul claro / blanco ──
+  # ── Filas data: alternadas ───────────────────────────────────────────────────
   tab_style(
-    style = cell_fill(color = "#EAF1FB"),
-    locations = cells_body(rows = filas_normales[seq(1, length(filas_normales), by = 2)])
+    style = cell_fill(color = "#D6E8F7"),
+    locations = cells_body(rows = idx_data[seq(1, length(idx_data), by = 2)])
   ) |>
   tab_style(
     style = cell_fill(color = "#FFFFFF"),
-    locations = cells_body(rows = filas_normales[seq(2, length(filas_normales), by = 2)])
+    locations = cells_body(rows = idx_data[seq(2, length(idx_data), by = 2)])
+  ) |>
+  tab_style(
+    style = cell_text(color = "#1B3A5C", font = "Times New Roman", size = px(12)),
+    locations = cells_body(rows = idx_data)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = Num_envios, rows = idx_data)
+  ) |>
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#B8D4E8", weight = px(1)),
+    locations = cells_body(rows = idx_data)
   ) |>
   
-  # ── Filas de subtotales: fondo azul oscuro, texto blanco negrita ──
+  # ── Fila promedio ────────────────────────────────────────────────────────────
   tab_style(
     style = list(
-      cell_fill(color = "#1B3A5C"),
-      cell_text(color = "white", weight = "bold", size = px(15))
+      cell_fill(color = "#FFFFFF"),
+      cell_text(color = "#1B3A5C", weight = "bold", size = px(12),
+                font = "Times New Roman")
     ),
-    locations = cells_body(rows = filas_subtotal)
+    locations = cells_body(rows = idx_prom)
+  ) |>
+  tab_style(
+    style = cell_borders(sides = "top", color = "#1B3A5C", weight = px(2)),
+    locations = cells_body(rows = idx_prom)
   ) |>
   
-  # ── Borde superior en Utilidad Neta ──
-  tab_style(
-    style = cell_borders(sides = "top", color = "#B0C4DE", weight = px(2)),
-    locations = cells_body(rows = fila_neta)
-  ) |>
-  
-  # ── Texto general del cuerpo ──
-  tab_style(
-    style = cell_text(size = px(14), font = "Times New Roman"),
-    locations = cells_body()
-  ) |>
-  tab_style(
-    style = cell_text(font = "Times New Roman"),
-    locations = cells_column_labels()
-  ) |>
-  tab_style(
-    style = cell_text(font = "Times New Roman"),
-    locations = cells_title()
-  ) |>
-  
-  # ── Bordes horizontales entre filas normales ──
-  tab_style(
-    style = cell_borders(sides = "bottom", color = "#B0C4DE", weight = px(1)),
-    locations = cells_body(rows = filas_normales)
-  ) |>
-  
-  # ── Nota al pie ──
-  tab_source_note(
-    source_note = md("*Fuente: Sistema contable interno — Estado de Resultados*")
-  ) |>
-  tab_style(
-    style = cell_borders(sides = "top", color = "#B0C4DE", weight = px(1)),
-    locations = cells_source_notes()
-  ) |>
-  
-  # ── Opciones generales ──
+  # ── Opciones generales ──────────────────────────────────────────────────────
   tab_options(
-    table.width                    = px(630),
-    table.border.top.color         = "#1B3A5C",
-    table.border.top.width         = px(3),
-    table.border.bottom.color      = "#1B3A5C",
-    table.border.bottom.width      = px(2),
-    heading.background.color       = "#F0F4FA",
-    heading.border.bottom.color    = "#1B3A5C",
-    heading.border.bottom.width    = px(2),
-    column_labels.border.top.color = "#1B3A5C",
-    column_labels.border.top.width = px(2),
-    data_row.padding               = px(8),
-    source_notes.font.size         = px(12)
+    table.width                       = px(520),
+    table.border.top.color            = "#1B3A5C",
+    table.border.top.width            = px(3),
+    table.border.bottom.color         = "#1B3A5C",
+    table.border.bottom.width         = px(2),
+    column_labels.border.top.color    = "#1B3A5C",
+    column_labels.border.top.width    = px(2),
+    column_labels.border.bottom.color = "#7EC8E3",
+    column_labels.border.bottom.width = px(2),
+    data_row.padding                  = px(6)
   )
 
-# Mostrar en el Viewer de RStudio
+# ── 3. Mostrar y exportar ─────────────────────────────────────────────────────
 tabla
 
-# Exportar a HTML
-gtsave(tabla, "tabla_estado_resultados.png")
+gtsave(tabla, "tabla_puntos_entrega.png")   # requiere webshot2
 
-message("Tabla generada. Archivo: tabla_estado_resultados.html")
+message("Tabla generada: tabla_puntos_entrega.html")
